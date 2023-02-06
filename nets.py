@@ -1,27 +1,8 @@
-import os
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-import monai
-import random
-import numpy as np
-
 from cbam import *
 from ffc import *
-
-def set_seed(seed=42):
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
-    monai.utils.misc.set_determinism(seed=seed)
-# pl.seed_everything(seed,True)
+from nnblock import *
+from deeprft import *
+from util import *
 
 def bn2instance(module):
     module_output = module
@@ -46,31 +27,31 @@ def bn2instance(module):
     del module
     return module_output
 
-# modules
-class FFT_ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(FFT_ConvBlock, self).__init__()
-        self.img_conv  = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.fft_conv  = nn.Conv1d(in_channels*2, out_channels*2, kernel_size=1, stride=1, padding=0)
-        self.norm1 = nn.InstanceNorm1d(out_channels)
-        self.norm2 = nn.InstanceNorm1d(out_channels*2)
+# # modules
+# class FFT_ConvBlock(nn.Module):
+#     def __init__(self, in_channels, out_channels):
+#         super(FFT_ConvBlock, self).__init__()
+#         self.img_conv  = nn.Conv1d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+#         self.fft_conv  = nn.Conv1d(in_channels*2, out_channels*2, kernel_size=1, stride=1, padding=0)
+#         self.norm1 = nn.InstanceNorm1d(out_channels)
+#         self.norm2 = nn.InstanceNorm1d(out_channels*2)
 
-    def forward(self, x):
-        # Fourier domain   
-        # _, _, W = x.shape
-        fft = torch.fft.rfft(x, norm='ortho')
-        fft = torch.cat([fft.real, fft.imag], dim=1)
-        fft = F.relu(self.norm2(self.fft_conv(fft)))
-        fft_real, fft_imag = torch.chunk(fft, 2, dim=1)        
-        fft = torch.complex(fft_real, fft_imag)
-        fft = torch.fft.irfft(fft, norm='ortho')
-        fft = self.norm1(fft)
-        # Image domain  
-        img = F.leaky_relu(self.norm1(self.img_conv(x)),0.1)
+#     def forward(self, x):
+#         # Fourier domain   
+#         # _, _, W = x.shape
+#         fft = torch.fft.rfft(x, norm='ortho')
+#         fft = torch.cat([fft.real, fft.imag], dim=1)
+#         fft = F.relu(self.norm2(self.fft_conv(fft)))
+#         fft_real, fft_imag = torch.chunk(fft, 2, dim=1)        
+#         fft = torch.complex(fft_real, fft_imag)
+#         fft = torch.fft.irfft(fft, norm='ortho')
+#         # fft = self.norm1(fft)
+#         # Image domain  
+#         img = F.leaky_relu(self.norm1(self.img_conv(x)),0.1)
 
-        # Mixing (residual, image, fourier)
-        output = x + img + fft
-        return output
+#         # Mixing (residual, image, fourier)
+#         output = x + img + fft
+#         return output
         
 class DFF(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -102,152 +83,152 @@ class DFF(nn.Module):
         return x_f
 
     
-class NLBlockND(nn.Module):
-    def __init__(self, in_channels, inter_channels=None, mode='embedded', dimension=3, norm_layer='batch'):
-        """Implementation of Non-Local Block with 4 different pairwise functions but doesn't include subsampling trick
-        args:
-            in_channels: original channel size (1024 in the paper)
-            inter_channels: channel size inside the block if not specifed reduced to half (512 in the paper)
-            mode: supports Gaussian, Embedded Gaussian, Dot Product, and Concatenation
-            dimension: can be 1 (temporal), 2 (spatial), 3 (spatiotemporal)
-            norm_layer: whether to add norm ('batch', 'instance', None)
+# class NLBlockND(nn.Module):
+#     def __init__(self, in_channels, inter_channels=None, mode='embedded', dimension=3, norm_layer='batch'):
+#         """Implementation of Non-Local Block with 4 different pairwise functions but doesn't include subsampling trick
+#         args:
+#             in_channels: original channel size (1024 in the paper)
+#             inter_channels: channel size inside the block if not specifed reduced to half (512 in the paper)
+#             mode: supports Gaussian, Embedded Gaussian, Dot Product, and Concatenation
+#             dimension: can be 1 (temporal), 2 (spatial), 3 (spatiotemporal)
+#             norm_layer: whether to add norm ('batch', 'instance', None)
             
             
-        # if __name__ == '__main__':
-        #     import torch
-        #     x = torch.zeros(2, 16, 16)
-        #     net = NLBlockND(in_channels=x.shape[1], mode='embedded', dimension=1, norm_layer='instance')
-        #     out = net(x)
-        """
-        super(NLBlockND, self).__init__()
+#         # if __name__ == '__main__':
+#         #     import torch
+#         #     x = torch.zeros(2, 16, 16)
+#         #     net = NLBlockND(in_channels=x.shape[1], mode='embedded', dimension=1, norm_layer='instance')
+#         #     out = net(x)
+#         """
+#         super(NLBlockND, self).__init__()
 
-        assert dimension in [1, 2, 3]
+#         assert dimension in [1, 2, 3]
         
-        if mode not in ['gaussian', 'embedded', 'dot', 'concatenate']:
-            raise ValueError('`mode` must be one of `gaussian`, `embedded`, `dot` or `concatenate`')
+#         if mode not in ['gaussian', 'embedded', 'dot', 'concatenate']:
+#             raise ValueError('`mode` must be one of `gaussian`, `embedded`, `dot` or `concatenate`')
             
-        self.mode = mode
-        self.dimension = dimension
+#         self.mode = mode
+#         self.dimension = dimension
 
-        self.in_channels = in_channels
-        self.inter_channels = inter_channels
+#         self.in_channels = in_channels
+#         self.inter_channels = inter_channels
 
-        # the channel size is reduced to half inside the block
-        if self.inter_channels is None:
-            self.inter_channels = in_channels // 2
-            if self.inter_channels == 0:
-                self.inter_channels = 1
+#         # the channel size is reduced to half inside the block
+#         if self.inter_channels is None:
+#             self.inter_channels = in_channels // 2
+#             if self.inter_channels == 0:
+#                 self.inter_channels = 1
         
-        # assign appropriate convolutional, max pool, and batch norm layers for different dimensions
-        if dimension == 3:
-            conv_nd = nn.Conv3d
-            max_pool_layer = nn.MaxPool3d(kernel_size=(1, 2, 2))
-            if norm_layer =='batch':
-                bn = nn.BatchNorm3d
-            elif norm_layer =='instance':
-                bn = nn.InstanceNorm3d            
-        elif dimension == 2:
-            conv_nd = nn.Conv2d
-            max_pool_layer = nn.MaxPool2d(kernel_size=(2, 2))
-            if norm_layer =='batch':
-                bn = nn.BatchNorm2d
-            elif norm_layer =='instance':
-                bn = nn.InstanceNorm2d
-        else:
-            conv_nd = nn.Conv1d
-            # conv_nd = nn.Conv1d if FFT==False else FFC
-            # conv_nd = nn.Conv1d if FFT==False else FFC_BN_ACT
-            max_pool_layer = nn.MaxPool1d(kernel_size=(2))
-            if norm_layer =='batch':
-                bn = nn.BatchNorm1d
-            elif norm_layer =='instance':
-                bn = nn.InstanceNorm1d
+#         # assign appropriate convolutional, max pool, and batch norm layers for different dimensions
+#         if dimension == 3:
+#             conv_nd = nn.Conv3d
+#             max_pool_layer = nn.MaxPool3d(kernel_size=(1, 2, 2))
+#             if norm_layer =='batch':
+#                 bn = nn.BatchNorm3d
+#             elif norm_layer =='instance':
+#                 bn = nn.InstanceNorm3d            
+#         elif dimension == 2:
+#             conv_nd = nn.Conv2d
+#             max_pool_layer = nn.MaxPool2d(kernel_size=(2, 2))
+#             if norm_layer =='batch':
+#                 bn = nn.BatchNorm2d
+#             elif norm_layer =='instance':
+#                 bn = nn.InstanceNorm2d
+#         else:
+#             conv_nd = nn.Conv1d
+#             # conv_nd = nn.Conv1d if FFT==False else FFC
+#             # conv_nd = nn.Conv1d if FFT==False else FFC_BN_ACT
+#             max_pool_layer = nn.MaxPool1d(kernel_size=(2))
+#             if norm_layer =='batch':
+#                 bn = nn.BatchNorm1d
+#             elif norm_layer =='instance':
+#                 bn = nn.InstanceNorm1d
 
-        # function g in the paper which goes through conv. with kernel size 1
-        self.g = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
+#         # function g in the paper which goes through conv. with kernel size 1
+#         self.g = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
 
-        # add BatchNorm layer after the last conv layer
-        if norm_layer is not None:
-            self.W_z = nn.Sequential(
-                    conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1),
-                    bn(self.in_channels)
-                )
-            # # from section 4.1 of the paper, initializing params of BN ensures that the initial state of non-local block is identity mapping
-            # nn.init.constant_(self.W_z[1].weight, 0)
-            # nn.init.constant_(self.W_z[1].bias, 0)
-        else:
-            self.W_z = conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1)
+#         # add BatchNorm layer after the last conv layer
+#         if norm_layer is not None:
+#             self.W_z = nn.Sequential(
+#                     conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1),
+#                     bn(self.in_channels)
+#                 )
+#             # # from section 4.1 of the paper, initializing params of BN ensures that the initial state of non-local block is identity mapping
+#             # nn.init.constant_(self.W_z[1].weight, 0)
+#             # nn.init.constant_(self.W_z[1].bias, 0)
+#         else:
+#             self.W_z = conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1)
 
-            # from section 3.3 of the paper by initializing Wz to 0, this block can be inserted to any existing architecture
-            nn.init.constant_(self.W_z.weight, 0)
-            nn.init.constant_(self.W_z.bias, 0)
+#             # from section 3.3 of the paper by initializing Wz to 0, this block can be inserted to any existing architecture
+#             nn.init.constant_(self.W_z.weight, 0)
+#             nn.init.constant_(self.W_z.bias, 0)
 
-        # define theta and phi for all operations except gaussian
-        if self.mode == "embedded" or self.mode == "dot" or self.mode == "concatenate":
-            self.theta = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
-            self.phi = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
+#         # define theta and phi for all operations except gaussian
+#         if self.mode == "embedded" or self.mode == "dot" or self.mode == "concatenate":
+#             self.theta = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
+#             self.phi = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
         
-        if self.mode == "concatenate":
-            self.W_f = nn.Sequential(
-                    conv_nd(in_channels=self.inter_channels * 2, out_channels=1, kernel_size=1),
-                    nn.LeakyReLU(0.1)
-                )
+#         if self.mode == "concatenate":
+#             self.W_f = nn.Sequential(
+#                     conv_nd(in_channels=self.inter_channels * 2, out_channels=1, kernel_size=1),
+#                     nn.LeakyReLU(0.1)
+#                 )
             
-    def forward(self, x):
-        """
-        args
-            x: (N, C, T, H, W) for dimension=3; (N, C, H, W) for dimension 2; (N, C, T) for dimension 1
-        """
+#     def forward(self, x):
+#         """
+#         args
+#             x: (N, C, T, H, W) for dimension=3; (N, C, H, W) for dimension 2; (N, C, T) for dimension 1
+#         """
 
-        batch_size = x.size(0)
+#         batch_size = x.size(0)
         
-        # (N, C, THW)
-        g_x = self.g(x).view(batch_size, self.inter_channels, -1)
-        g_x = g_x.permute(0, 2, 1)
+#         # (N, C, THW)
+#         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
+#         g_x = g_x.permute(0, 2, 1)
 
-        if self.mode == "gaussian":
-            theta_x = x.view(batch_size, self.in_channels, -1)
-            phi_x = x.view(batch_size, self.in_channels, -1)
-            theta_x = theta_x.permute(0, 2, 1)
-            f = torch.matmul(theta_x, phi_x)
+#         if self.mode == "gaussian":
+#             theta_x = x.view(batch_size, self.in_channels, -1)
+#             phi_x = x.view(batch_size, self.in_channels, -1)
+#             theta_x = theta_x.permute(0, 2, 1)
+#             f = torch.matmul(theta_x, phi_x)
 
-        elif self.mode == "embedded" or self.mode == "dot":
-            theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
-            phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
-            theta_x = theta_x.permute(0, 2, 1)
-            f = torch.matmul(theta_x, phi_x)
+#         elif self.mode == "embedded" or self.mode == "dot":
+#             theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
+#             phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
+#             theta_x = theta_x.permute(0, 2, 1)
+#             f = torch.matmul(theta_x, phi_x)
 
-        elif self.mode == "concatenate":
-            theta_x = self.theta(x).view(batch_size, self.inter_channels, -1, 1)
-            phi_x = self.phi(x).view(batch_size, self.inter_channels, 1, -1)
+#         elif self.mode == "concatenate":
+#             theta_x = self.theta(x).view(batch_size, self.inter_channels, -1, 1)
+#             phi_x = self.phi(x).view(batch_size, self.inter_channels, 1, -1)
             
-            h = theta_x.size(2)
-            w = phi_x.size(3)
-            theta_x = theta_x.repeat(1, 1, 1, w)
-            phi_x = phi_x.repeat(1, 1, h, 1)
+#             h = theta_x.size(2)
+#             w = phi_x.size(3)
+#             theta_x = theta_x.repeat(1, 1, 1, w)
+#             phi_x = phi_x.repeat(1, 1, h, 1)
             
-            concat = torch.cat([theta_x, phi_x], dim=1)
-            f = self.W_f(concat)
-            f = f.view(f.size(0), f.size(2), f.size(3))
+#             concat = torch.cat([theta_x, phi_x], dim=1)
+#             f = self.W_f(concat)
+#             f = f.view(f.size(0), f.size(2), f.size(3))
         
-        if self.mode == "gaussian" or self.mode == "embedded":
-            f_div_C = F.softmax(f, dim=-1)
+#         if self.mode == "gaussian" or self.mode == "embedded":
+#             f_div_C = F.softmax(f, dim=-1)
             
-        elif self.mode == "dot" or self.mode == "concatenate":
-            N = f.size(-1) # number of position in x
-            f_div_C = f / N
+#         elif self.mode == "dot" or self.mode == "concatenate":
+#             N = f.size(-1) # number of position in x
+#             f_div_C = f / N
         
-        y = torch.matmul(f_div_C, g_x)
+#         y = torch.matmul(f_div_C, g_x)
         
-        # contiguous here just allocates contiguous chunk of memory
-        y = y.permute(0, 2, 1).contiguous()
-        y = y.view(batch_size, self.inter_channels, *x.size()[2:])
+#         # contiguous here just allocates contiguous chunk of memory
+#         y = y.permute(0, 2, 1).contiguous()
+#         y = y.view(batch_size, self.inter_channels, *x.size()[2:])
         
-        W_y = self.W_z(y)
-        # residual connection
-        z = W_y + x
+#         W_y = self.W_z(y)
+#         # residual connection
+#         z = W_y + x
 
-        return z
+#         return z
 
 import torch
 import torch.nn as nn
@@ -2286,7 +2267,7 @@ class MBConvBlock(nn.Module):
             elif se_module =='deeprft':
                 self.se = FFT_ConvBlock(oup,oup)
             elif se_module =='cbam':
-                self.se = BAM(gate_channels=oup, reduction_ratio=16, pool_types=['avg', 'max'])
+                self.se = CBAM(gate_channels=oup, reduction_ratio=16, pool_types=['avg', 'max'])
                 
         # Pointwise convolution phase
         final_oup = out_channels
@@ -3452,11 +3433,13 @@ class UpCat(nn.Module):
 #             # print(logits.shape)
 #             return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
 
-        
+# featureLength = 1024
+featureLength = 1280
+
 class UNet(nn.Module):
     def __init__(
         self,
-        modelName='efficientnet-b3',
+        modelName='efficientnet-b0',
         spatial_dims: int = 2,
         in_channels: int = 1,
         out_channels: int = 2,
@@ -3467,8 +3450,10 @@ class UNet(nn.Module):
         upsample: str = "deconv", # [deconv, nontrainable, pixelshuffle]
         supervision = "NONE", #[None,'old','new']
         skipModule= "NONE",
+        segheadModule ="NONE",
         skipASPP = "NONE",
         se_module= 'se',
+        mtl="NONE"
     ):
         """
         A UNet implementation with 1D/2D/3D supports.
@@ -3536,22 +3521,22 @@ class UNet(nn.Module):
         fea = [yhat_.shape[1] for yhat_ in yhat]
         print(fea)
         
+        
         # skip modules
         self.skipModule = skipModule
-        self.skip_1= None
-        self.skip_2= None
-        self.skip_3= None
-        self.skip_4= None
-        self.skip_5= None
-        
+        self.skip_1 = None
+        self.skip_2 = None
+        self.skip_3 = None
+        self.skip_4 = None
+        self.skip_5 = None
+        print(f"skipModule:{skipModule}")
         if skipModule=="NONE":
-            print("skipModule:NONE")
-            
+            pass
         elif 'ACM' in skipModule:
             group = int(skipModule.split('ACM')[-1][0])
             self.ACMLambda = float(skipModule.split('_')[1])
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule} group {group} ACMLambda {self.ACMLambda}")
+            # print(f"skipModule: {skipModule} group {group} ACMLambda {self.ACMLambda}")
             if self.ACMLambda==0:
                 self.skip_1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False) if l>=5 else nn.Identity()
                 self.skip_2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False) if l>=4 else nn.Identity()
@@ -3564,20 +3549,13 @@ class UNet(nn.Module):
                 self.skip_3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True) if l>=3 else nn.Identity()
                 self.skip_4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True) if l>=2 else nn.Identity()
                 self.skip_5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True) if l>=1 else nn.Identity()
-
-#             self.skip_1 = nn.Sequential(nn.Conv1d(fea[0],(fea[0]//8)*32,1), ACM(num_heads=(fea[0]//8)*32//group, num_features=(fea[0]//8)*32, orthogonal_loss=False),nn.Conv1d((fea[0]//8)*32,fea[0],1),nn.InstanceNorm1d(fea[0])) 
-#             self.skip_2 = nn.Sequential(nn.Conv1d(fea[1],(fea[1]//8)*32,1), ACM(num_heads=(fea[1]//8)*32//group, num_features=(fea[1]//8)*32, orthogonal_loss=False),nn.Conv1d((fea[1]//8)*32,fea[1],1),nn.InstanceNorm1d(fea[1]))
-#             self.skip_3 = nn.Sequential(nn.Conv1d(fea[2],(fea[2]//8)*32,1), ACM(num_heads=(fea[2]//8)*32//group, num_features=(fea[2]//8)*32, orthogonal_loss=False),nn.Conv1d((fea[2]//8)*32,fea[2],1),nn.InstanceNorm1d(fea[2]))
-#             self.skip_4 = nn.Sequential(nn.Conv1d(fea[3],(fea[3]//8)*32,1), ACM(num_heads=(fea[3]//8)*32//group, num_features=(fea[3]//8)*32, orthogonal_loss=False),nn.Conv1d((fea[3]//8)*32,fea[3],1),nn.InstanceNorm1d(fea[3]))
-#             self.skip_5 = nn.Sequential(nn.Conv1d(fea[4],(fea[4]//8)*32,1), ACM(num_heads=(fea[4]//8)*32//group, num_features=(fea[4]//8)*32, orthogonal_loss=False),nn.Conv1d((fea[4]//8)*32,fea[4],1),nn.InstanceNorm1d(fea[4]))
-            
         elif 'NLNN' in skipModule:
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
             # norm = None
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule} {l}")
+            # print(f"skipModule: {skipModule} {l}")
             self.skip_1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=5 else nn.Identity()
             self.skip_2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=4 else nn.Identity()
             self.skip_3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=3 else nn.Identity()
@@ -3585,7 +3563,7 @@ class UNet(nn.Module):
             self.skip_5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=1 else nn.Identity()
         elif 'FFC' in skipModule:
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule}")
+            # print(f"skipModule: {skipModule}")
             self.skip_1 = FFC_BN_ACT(fea[0],fea[0]) if l>=5 else nn.Identity()
             self.skip_2 = FFC_BN_ACT(fea[1],fea[1]) if l>=4 else nn.Identity()
             self.skip_3 = FFC_BN_ACT(fea[2],fea[2]) if l>=3 else nn.Identity()
@@ -3593,7 +3571,7 @@ class UNet(nn.Module):
             self.skip_5 = FFC_BN_ACT(fea[4],fea[4]) if l>=1 else nn.Identity()
         elif 'DEEPRFT' in skipModule:
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule}")
+            # print(f"skipModule: {skipModule}")
             self.skip_1 = FFT_ConvBlock(fea[0],fea[0]) if l>=5 else nn.Identity()
             self.skip_2 = FFT_ConvBlock(fea[1],fea[1]) if l>=4 else nn.Identity()
             self.skip_3 = FFT_ConvBlock(fea[2],fea[2]) if l>=3 else nn.Identity()
@@ -3601,7 +3579,7 @@ class UNet(nn.Module):
             self.skip_5 = FFT_ConvBlock(fea[4],fea[4]) if l>=1 else nn.Identity()
         elif 'SE' in skipModule:
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule}")
+            # print(f"skipModule: {skipModule}")
             self.skip_1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) if l>=5 else nn.Identity()
             self.skip_2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1]) if l>=4 else nn.Identity()
             self.skip_3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2]) if l>=3 else nn.Identity()
@@ -3609,12 +3587,20 @@ class UNet(nn.Module):
             self.skip_5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4]) if l>=1 else nn.Identity()
         elif 'CBAM' in skipModule:
             l = int(skipModule.split('BOTTOM')[-1])
-            print(f"skipModule: {skipModule}")
+            # print(f"skipModule: {skipModule}")
             self.skip_1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max']) if l>=5 else nn.Identity()
             self.skip_2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max']) if l>=4 else nn.Identity()
             self.skip_3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max']) if l>=3 else nn.Identity()
             self.skip_4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max']) if l>=2 else nn.Identity()
             self.skip_5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max']) if l>=1 else nn.Identity()
+        elif 'MHA' in skipModule:
+            l = int(skipModule.split('BOTTOM')[-1])
+            # print(f"skipModule: {skipModule}")
+            self.skip_1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) if l>=5 else nn.Identity()
+            self.skip_2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01) if l>=4 else nn.Identity()
+            self.skip_3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01) if l>=3 else nn.Identity()
+            self.skip_4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01) if l>=2 else nn.Identity()
+            self.skip_5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01) if l>=1 else nn.Identity()
             
         self.skipASPP=skipASPP
         self.ASPP_1 = nn.Identity()
@@ -3622,8 +3608,7 @@ class UNet(nn.Module):
         self.ASPP_3 = nn.Identity()
         self.ASPP_4 = nn.Identity()
         self.ASPP_5 = nn.Identity()
-        
-        print(f"skipASPP:ASPP {self.skipASPP}")
+        print(f"skipASPP: {self.skipASPP}")
         if self.skipASPP=='NONE':
             pass
         elif self.skipASPP=='BOTTOM1':
@@ -3647,38 +3632,70 @@ class UNet(nn.Module):
             self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
             self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
         
+        
+        # multiTaskCLS
+        self.mtl = None
+        if mtl == "CLS":
+            self.mtl = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]),nn.AdaptiveAvgPool1d(1),nn.Conv1d(fea[4],1,1))
+        elif mtl == "REC":
+            self.mtl = nn.Sequential(_upsample_like(x1,u0))
+        elif mtl == "ALL":
+            self.mtl = nn.Sequential(_upsample_like(x1,u0))
+        
         # U-Net Decoder
         self.upcat_4 = UpCat(spatial_dims, fea[4], fea[3], fea[3], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_3 = UpCat(spatial_dims, fea[3], fea[2], fea[2], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_2 = UpCat(spatial_dims, fea[2], fea[1], fea[1], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_1 = UpCat(spatial_dims, fea[1], fea[0], fea[0], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_0 = UpCat(spatial_dims, fea[0], fea[0], fea[0], act, norm, bias, dropout, upsample, interp_mode='linear', halves=False)
-        # self.final_conv = Conv["conv", spatial_dims](fea[0], out_channels, kernel_size=1)
-        self.final_conv = nn.Sequential(TwoConv(spatial_dims, fea[0], fea[0], act, norm, bias, dropout),
-                                        Conv["conv", spatial_dims](fea[0], out_channels, kernel_size=1),)
-        
+
         self.supervision = supervision
-        if supervision=='old' or supervision =='TYPE1':
-            # self.final_conv = Conv["conv", spatial_dims](fea[0]+fea[0]+fea[1]+fea[2]+fea[3]+fea[4], out_channels, kernel_size=1)
-            self.final_conv = nn.Sequential(TwoConv(spatial_dims, fea[0]+fea[0]+fea[1]+fea[2]+fea[3]+fea[4], fea[0]+fea[0]+fea[1]+fea[2]+fea[3]+fea[4], act, norm, bias, dropout),
-                                            Conv["conv", spatial_dims](fea[0]+fea[0]+fea[1]+fea[2]+fea[3]+fea[4], out_channels, kernel_size=1),)
-
+        if supervision == 'NONE':
+            supervision_c = fea[0]
+        elif supervision =='TYPE1':
+            supervision_c = fea[0]+fea[0]+fea[1]+fea[2]+fea[3]+fea[4]
+        elif supervision =='TYPE2':
+            self.sv0= Conv["conv", spatial_dims](fea[0], out_channels*8, kernel_size=3, padding=1)
+            self.sv1= Conv["conv", spatial_dims](fea[0], out_channels*8, kernel_size=3, padding=1)
+            self.sv2= Conv["conv", spatial_dims](fea[1], out_channels*8, kernel_size=3, padding=1)
+            self.sv3= Conv["conv", spatial_dims](fea[2], out_channels*8, kernel_size=3, padding=1)
+            self.sv4= Conv["conv", spatial_dims](fea[3], out_channels*8, kernel_size=3, padding=1)
+            self.sv5= Conv["conv", spatial_dims](fea[4], out_channels*8, kernel_size=3, padding=1)
+            supervision_c =  out_channels*8*6
             
-        elif supervision=='new' or supervision =='TYPE2':
-            self.sv0= Conv["conv", spatial_dims](fea[0], out_channels, kernel_size=3, padding=1)
-            self.sv1= Conv["conv", spatial_dims](fea[0], out_channels, kernel_size=3, padding=1)
-            self.sv2= Conv["conv", spatial_dims](fea[1], out_channels, kernel_size=3, padding=1)
-            self.sv3= Conv["conv", spatial_dims](fea[2], out_channels, kernel_size=3, padding=1)
-            self.sv4= Conv["conv", spatial_dims](fea[3], out_channels, kernel_size=3, padding=1)
-            self.sv5= Conv["conv", spatial_dims](fea[4], out_channels, kernel_size=3, padding=1)
-            # self.final_conv = Conv["conv", spatial_dims](out_channels*6, out_channels, kernel_size=1)
-            self.final_conv = nn.Sequential(TwoConv(spatial_dims, out_channels*6, out_channels*6, act, norm, bias, dropout),
-                                            Conv["conv", spatial_dims](out_channels*6, out_channels, kernel_size=1),)
-
+        self.segheadModule = segheadModule
+        print(f"segheadModule: {segheadModule}")
+        if segheadModule == "NONE":
+            self.segheadModule = nn.Identity()
+        elif 'ACM' in segheadModule:
+            group = int(segheadModule.split('ACM')[-1][0])
+            self.ACMLambda = float(segheadModule.split('_')[-1])
+            print(f"segheadModule: {segheadModule} group {group} ACMLambda {self.ACMLambda}")
+            if self.ACMLambda==0:
+                self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=False)
+            else:
+                self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=True)
+        elif 'NLNN' in segheadModule:
+            norms = ['instance','batch']
+            if not norm in norms:
+                norm = None
+            self.segheadModule = NLBlockND(in_channels=supervision_c, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        elif 'FFC' in segheadModule:
+            self.segheadModule = FFC_BN_ACT(supervision_c,supervision_c)            
+        elif 'DEEPRFT' in segheadModule:
+            self.segheadModule = FFT_ConvBlock(supervision_c,supervision_c)
+        elif 'SE' in segheadModule:
+            # self.segheadModule = monai.networks.blocks.ChannelSELayer(spatial_dims,supervision_c)
+            self.segheadModule = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
+            # self.segheadModule = monai.networks.blocks.SEBlock(spatial_dims, in_channels, n_chns_1, n_chns_2, n_chns_3)
+        elif 'CBAM' in segheadModule:
+            self.segheadModule = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
+        self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
+                                    
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        set_seed()
+        # set_seed()
         if isinstance(module, nn.Conv1d) or isinstance(module, nn.ConvTranspose1d):
             neg_slope=1e-2
             module.weight = nn.init.kaiming_normal_(module.weight, a=neg_slope)
@@ -3693,16 +3710,28 @@ class UNet(nn.Module):
         x0 = self.conv_0(x)
         x1, x2, x3, x4, x5 = self.encoder(x0)
         dp = False
-        dp1 =dp2 = dp3 = dp4 = dp5 = 0.
+        dp1 = dp2 = dp3 = dp4 = dp5 = 0.
         
         if self.skipModule=="NONE":
             pass
+        elif "MHA" in self.skipModule:
+            x1,_ = self.skip_1(x1,x1,x1)
+            x2,_ = self.skip_2(x2,x2,x2)
+            x3,_ = self.skip_3(x3,x3,x3)
+            x4,_ = self.skip_4(x4,x4,x4)
+            x5,_ = self.skip_5(x5,x5,x5)
         else:
             x1 = self.skip_1(x1)
             x2 = self.skip_2(x2)
             x3 = self.skip_3(x3)
             x4 = self.skip_4(x4)
             x5 = self.skip_5(x5)
+        
+#             x1 = x1 + self.skip_1(x1)
+#             x2 = x2 + self.skip_2(x2)
+#             x3 = x3 + self.skip_3(x3)
+#             x4 = x4 + self.skip_4(x4)
+#             x5 = x5 + self.skip_5(x5)
             
             if isinstance(x1,tuple) or isinstance(x1,list):
                 x1, dp1 = x1
@@ -3721,12 +3750,6 @@ class UNet(nn.Module):
                 dp5 = torch.abs(dp5.mean())
             if dp1!=0 or dp2!=0 or dp!=0 or dp4!=0 or dp5!=0:
                 dp = self.ACMLambda * (dp1+dp2+dp3+dp4+dp5)
-
-            # x1 = x1 + self.skip_1(x1)
-            # x2 = x2 + self.skip_2(x2)
-            # x3 = x3 + self.skip_3(x3)
-            # x4 = x4 + self.skip_4(x4)
-            # x5 = x5 + self.skip_5(x5)
             
         if self.skipASPP==None or self.skipASPP=='NONE':
             pass
@@ -3736,7 +3759,11 @@ class UNet(nn.Module):
             x3 = self.ASPP_3(x3)
             x4 = self.ASPP_4(x4)
             x5 = self.ASPP_5(x5)
-
+                                        
+        out_cls= None            
+        if self.mtl:
+            out_cls = self.mtl(x5)
+  
         u4 = self.upcat_4(x5, x4)
         u3 = self.upcat_3(u4, x3)
         u2 = self.upcat_2(u3, x2)
@@ -3750,13 +3777,14 @@ class UNet(nn.Module):
             s3 = _upsample_like(x3,u0)
             s2 = _upsample_like(x2,u0)
             s1 = _upsample_like(x1,u0)            
-            u0 = torch.cat((u0,s1,s2,s3,s4,s5),1)            
+            u0 = torch.cat((u0,s1,s2,s3,s4,s5),dim=1)            
             # print(u0.shape, s1.shape, s2.shape, s3.shape, s4.shape, s5.shape)
             
             logits = self.final_conv(u0)
             # print(logits.shape)
-            # return torch.sigmoid(logits)
-            return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
+                                        
+            # return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits) # ACM lambda
+            return [torch.sigmoid(logits), torch.sigmoid(out_cls)] if out_cls!=None else torch.sigmoid(logits)
 
         elif self.supervision=='new' or self.supervision =='TYPE2':
             s5 = self.sv5(_upsample_like(x5,u0))
@@ -3771,9 +3799,12 @@ class UNet(nn.Module):
             logits = self.final_conv(u0)
             # print(logits.shape)
             # return torch.sigmoid(logits), torch.sigmoid(s1), torch.sigmoid(s2), torch.sigmoid(s3), torch.sigmoid(s4), torch.sigmoid(s5) 
-            return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
+            # return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
+            return [torch.sigmoid(logits), torch.sigmoid(out_cls)] if out_cls!=None else torch.sigmoid(logits)
+
         
         else:
             logits = self.final_conv(u0)
             # print(logits.shape)
-            return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
+            # return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
+            return [torch.sigmoid(logits), torch.sigmoid(out_cls)] if out_cls!=None else torch.sigmoid(logits)
