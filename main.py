@@ -1,8 +1,11 @@
 import os, sys, shutil
 os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
 os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
+# export http_proxy=http://192.168.45.100:3128
+# export https_proxy=https://192.168.45.100:3128
 
 # !pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet
+os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
 gpus= "0,1,2,3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -92,7 +95,7 @@ def train():
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
     batch_size = 128
-    alid_loader     = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
+    valid_loader     = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
     CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
@@ -116,7 +119,7 @@ def train():
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=200, # 80
+                        max_epochs=400, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
@@ -320,8 +323,8 @@ class PVC_NET(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         # return optimizer
-        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
         # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-3, pct_start=0.02, total_steps=self.trainer.estimated_stepping_batches)
         return {'optimizer': optimizer,
                 'lr_scheduler': {'scheduler': scheduler, 'monitor': 'val_loss'}}
@@ -957,3 +960,70 @@ class PVC_NET(pl.LightningModule):
             os.makedirs(f"{self.hyperparameters['path_logRoot']}/{self.experiment_name}/result/{self.dataSource}/", mode=0o777, exist_ok=True)
             plt.savefig(f"{self.hyperparameters['path_logRoot']}/{self.experiment_name}/result/{self.dataSource}/{str(fname[idx])}.png")
             plt.close()
+
+def EDA(config_defaults):
+    set_seed()
+    hyperparameters = dict(config_defaults)
+    model = PVC_NET(hyperparameters)
+
+    classes = model.hyperparameters['outChannels']
+    srTarget = model.hyperparameters['srTarget']
+    featureLength = model.hyperparameters['featureLength']       
+    dataNorm = model.hyperparameters['dataNorm']
+
+    train_files = glob('dataset/MIT-BIH_NPY/train/*.npy')
+    # train_data, valid_data = seed_MITBIH(train_files, model.hyperparameters['dataSeed'])
+    train_data, valid_data = FOLD5_MITBIH(train_files, model.hyperparameters['dataSeed'])
+    
+    train_dataset    = MIT_DATASET(train_data,featureLength,srTarget, classes, dataNorm, model.hyperparameters['trainaug'], True)
+    valid_dataset    = MIT_DATASET(valid_data,featureLength,srTarget, classes, dataNorm, False)
+    test_dataset     = MIT_DATASET(test_data,featureLength,srTarget, classes, dataNorm, False)
+    AMC_dataset      = MIT_DATASET(AMC_data,featureLength,srTarget, classes, dataNorm, False)
+    CPSC2020_dataset = MIT_DATASET(CPSC2020_data,featureLength, srTarget, classes, dataNorm,False)
+    # CU_dataset       = MIT_DATASET(CU_data,featureLength, srTarget, classes, False)
+    ESC_dataset      = MIT_DATASET(ESC_data,featureLength, srTarget, classes, False)
+    # FANTASIA_dataset = MIT_DATASET(FANTASIA_data,featureLength, srTarget, classes, False)
+    INCART_dataset   = MIT_DATASET(INCART_data,featureLength, srTarget, classes, dataNorm, False)
+    NS_dataset       = MIT_DATASET(NS_data,featureLength, srTarget, classes, dataNorm, False)
+    STDB_dataset     = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
+    SVDB_dataset     = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
+    # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
+
+    if model.hyperparameters['sampler']:
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
+    else:
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
+    valid_loader    = DataLoader(valid_dataset, batch_size = 64, shuffle = False, num_workers=2, pin_memory=True)
+    test_loader     = DataLoader(test_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = 64, num_workers=2, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = 64, num_workers=2, shuffle = False)
+    # CU_loader = DataLoader(CU_dataset,batch_size = 64, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = 64, num_workers=2, shuffle = False)
+    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = 64, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    # STDB_loader   = DataLoader(STDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    
+    loaders = [train_loader, valid_loader, test_loader, AMC_loader, CPSC2020_loader, ESC_loader, INCART_loader, NS_loader, SVDB_loader]
+    
+    for l in loaders:
+        batch = next(iter(l))
+        signal_original = batch['signal_original']
+        signal = batch['signal']
+        y_seg = batch['y_seg']
+        print(f"dataSource:{batch['dataSource'][0]} fname:{batch['pid'][0]} shape:{signal.shape} unique:{torch.unique(signal)}")
+        
+        i = 0
+        idx_QRS = get_Binaryindex(y_seg[i,0].numpy())
+        idx_PVC = get_Binaryindex(y_seg[i,1].numpy())
+        signal_min = torch.min(signal[i,0]) - .2
+        signal_max = torch.max(signal[i,0]) + .2
+        
+        plt.figure(figsize=(16,4))
+        # plt.plot(signal_original[i,0],label='Orignal ECG')
+        plt.plot(signal[i,0],label='Preprocessed ECG',color='black')
+        plt.scatter(idx_QRS,[signal_min]*len(idx_QRS),label='R-peak',alpha=0.8,marker="o")
+        plt.scatter(idx_PVC,[signal_max]*len(idx_PVC),label='PVC',alpha=0.8,marker="v")
+        plt.legend()
+        plt.show()

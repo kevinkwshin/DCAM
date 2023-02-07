@@ -1,9 +1,6 @@
 dataset/*
-
 lightning_logs/*
-
 wandb/*
 
 @eaDir/*
-
-20230203_MHATEST/*
+20230207_BASE/*

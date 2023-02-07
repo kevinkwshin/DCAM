@@ -566,7 +566,7 @@ class MIT_DATASET():
         self.featureLength = featureLength
         self.normalize = normalize
         self.mean, self.std = EDA_zscore(data)
-        print('mean', self.mean, 'std', self.std)
+        # print('mean', self.mean, 'std', self.std)
         
     def __len__(self):
         return len(self.data)
