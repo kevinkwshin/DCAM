@@ -9,9 +9,11 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = gpus
 os.environ["WANDB_API_KEY"] = '6cd6a2f58c8f4625faaea5c73fe110edab2be208'
 
-import nets
+from utils import *
+from models import *
 from data import *
-from util import *
+from losses import *
+import models.nets as nets
 
 run_command('nvcc -V')
 run_command('nvidia-smi')
@@ -23,17 +25,6 @@ print('multiprocessing.cpu_count()', multiprocessing.cpu_count())
 print('cuda.is_available', torch.cuda.is_available())
 print(device)
 # print_config()
-
-class DiceBCE(nn.Module):
-    def __init__(self):
-        super(DiceBCE, self).__init__()
-        self.bce = nn.BCELoss()
-        self.dice = monai.losses.DiceLoss()
-        
-    def forawrd(self,yhat,y):
-        bce = self.bce(yhat,y)
-        dice = self.dice(yhat,y)
-        return bce + dice
         
 config_defaults = dict(
     dataSeed = 1,

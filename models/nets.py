@@ -1,8 +1,12 @@
-from cbam import *
-from ffc import *
-from nnblock import *
-from deeprft import *
-from util import *
+import torch
+import torch.nn as nn
+import torch.nn.functional as F 
+
+from .cbam import *
+from .ffc import *
+from .nnblock import *
+from .deeprft import *
+# from ..utils import *
 
 def bn2instance(module):
     module_output = module
@@ -82,159 +86,24 @@ class DFF(nn.Module):
         x_f = torch.fft.irfft(x_f, norm='ortho')
         return x_f
 
-    
-# class NLBlockND(nn.Module):
-#     def __init__(self, in_channels, inter_channels=None, mode='embedded', dimension=3, norm_layer='batch'):
-#         """Implementation of Non-Local Block with 4 different pairwise functions but doesn't include subsampling trick
-#         args:
-#             in_channels: original channel size (1024 in the paper)
-#             inter_channels: channel size inside the block if not specifed reduced to half (512 in the paper)
-#             mode: supports Gaussian, Embedded Gaussian, Dot Product, and Concatenation
-#             dimension: can be 1 (temporal), 2 (spatial), 3 (spatiotemporal)
-#             norm_layer: whether to add norm ('batch', 'instance', None)
-            
-            
-#         # if __name__ == '__main__':
-#         #     import torch
-#         #     x = torch.zeros(2, 16, 16)
-#         #     net = NLBlockND(in_channels=x.shape[1], mode='embedded', dimension=1, norm_layer='instance')
-#         #     out = net(x)
-#         """
-#         super(NLBlockND, self).__init__()
-
-#         assert dimension in [1, 2, 3]
-        
-#         if mode not in ['gaussian', 'embedded', 'dot', 'concatenate']:
-#             raise ValueError('`mode` must be one of `gaussian`, `embedded`, `dot` or `concatenate`')
-            
-#         self.mode = mode
-#         self.dimension = dimension
-
-#         self.in_channels = in_channels
-#         self.inter_channels = inter_channels
-
-#         # the channel size is reduced to half inside the block
-#         if self.inter_channels is None:
-#             self.inter_channels = in_channels // 2
-#             if self.inter_channels == 0:
-#                 self.inter_channels = 1
-        
-#         # assign appropriate convolutional, max pool, and batch norm layers for different dimensions
-#         if dimension == 3:
-#             conv_nd = nn.Conv3d
-#             max_pool_layer = nn.MaxPool3d(kernel_size=(1, 2, 2))
-#             if norm_layer =='batch':
-#                 bn = nn.BatchNorm3d
-#             elif norm_layer =='instance':
-#                 bn = nn.InstanceNorm3d            
-#         elif dimension == 2:
-#             conv_nd = nn.Conv2d
-#             max_pool_layer = nn.MaxPool2d(kernel_size=(2, 2))
-#             if norm_layer =='batch':
-#                 bn = nn.BatchNorm2d
-#             elif norm_layer =='instance':
-#                 bn = nn.InstanceNorm2d
-#         else:
-#             conv_nd = nn.Conv1d
-#             # conv_nd = nn.Conv1d if FFT==False else FFC
-#             # conv_nd = nn.Conv1d if FFT==False else FFC_BN_ACT
-#             max_pool_layer = nn.MaxPool1d(kernel_size=(2))
-#             if norm_layer =='batch':
-#                 bn = nn.BatchNorm1d
-#             elif norm_layer =='instance':
-#                 bn = nn.InstanceNorm1d
-
-#         # function g in the paper which goes through conv. with kernel size 1
-#         self.g = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
-
-#         # add BatchNorm layer after the last conv layer
-#         if norm_layer is not None:
-#             self.W_z = nn.Sequential(
-#                     conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1),
-#                     bn(self.in_channels)
-#                 )
-#             # # from section 4.1 of the paper, initializing params of BN ensures that the initial state of non-local block is identity mapping
-#             # nn.init.constant_(self.W_z[1].weight, 0)
-#             # nn.init.constant_(self.W_z[1].bias, 0)
-#         else:
-#             self.W_z = conv_nd(in_channels=self.inter_channels, out_channels=self.in_channels, kernel_size=1)
-
-#             # from section 3.3 of the paper by initializing Wz to 0, this block can be inserted to any existing architecture
-#             nn.init.constant_(self.W_z.weight, 0)
-#             nn.init.constant_(self.W_z.bias, 0)
-
-#         # define theta and phi for all operations except gaussian
-#         if self.mode == "embedded" or self.mode == "dot" or self.mode == "concatenate":
-#             self.theta = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
-#             self.phi = conv_nd(in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1)
-        
-#         if self.mode == "concatenate":
-#             self.W_f = nn.Sequential(
-#                     conv_nd(in_channels=self.inter_channels * 2, out_channels=1, kernel_size=1),
-#                     nn.LeakyReLU(0.1)
-#                 )
-            
-#     def forward(self, x):
-#         """
-#         args
-#             x: (N, C, T, H, W) for dimension=3; (N, C, H, W) for dimension 2; (N, C, T) for dimension 1
-#         """
-
-#         batch_size = x.size(0)
-        
-#         # (N, C, THW)
-#         g_x = self.g(x).view(batch_size, self.inter_channels, -1)
-#         g_x = g_x.permute(0, 2, 1)
-
-#         if self.mode == "gaussian":
-#             theta_x = x.view(batch_size, self.in_channels, -1)
-#             phi_x = x.view(batch_size, self.in_channels, -1)
-#             theta_x = theta_x.permute(0, 2, 1)
-#             f = torch.matmul(theta_x, phi_x)
-
-#         elif self.mode == "embedded" or self.mode == "dot":
-#             theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
-#             phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
-#             theta_x = theta_x.permute(0, 2, 1)
-#             f = torch.matmul(theta_x, phi_x)
-
-#         elif self.mode == "concatenate":
-#             theta_x = self.theta(x).view(batch_size, self.inter_channels, -1, 1)
-#             phi_x = self.phi(x).view(batch_size, self.inter_channels, 1, -1)
-            
-#             h = theta_x.size(2)
-#             w = phi_x.size(3)
-#             theta_x = theta_x.repeat(1, 1, 1, w)
-#             phi_x = phi_x.repeat(1, 1, h, 1)
-            
-#             concat = torch.cat([theta_x, phi_x], dim=1)
-#             f = self.W_f(concat)
-#             f = f.view(f.size(0), f.size(2), f.size(3))
-        
-#         if self.mode == "gaussian" or self.mode == "embedded":
-#             f_div_C = F.softmax(f, dim=-1)
-            
-#         elif self.mode == "dot" or self.mode == "concatenate":
-#             N = f.size(-1) # number of position in x
-#             f_div_C = f / N
-        
-#         y = torch.matmul(f_div_C, g_x)
-        
-#         # contiguous here just allocates contiguous chunk of memory
-#         y = y.permute(0, 2, 1).contiguous()
-#         y = y.view(batch_size, self.inter_channels, *x.size()[2:])
-        
-#         W_y = self.W_z(y)
-#         # residual connection
-#         z = W_y + x
-
-#         return z
-
-import torch
-import torch.nn as nn
 
 class ACM(nn.Module):
+    """
+    if __name__ == '__main__':
+        x1 = torch.randn(256 * 20 * 20 * 5).view(5, 256, 20, 20).float()
+        x1 = torch.rand(2, 320, 160).float()
+        acm = ACM(num_heads=32, num_features=320, orthogonal_loss=True)
+        acm.init_parameters()
+        y, dp = acm(x1)
+        print(y.shape)
+        print(dp.shape)
 
+        ACM without orthogonal loss
+        acm = ACM(num_heads=32, num_features=320, orthogonal_loss=False)
+        acm.init_parameters()
+        y = acm(x1)
+        print(x1.shape,y.shape)
+    """
     def __init__(self, num_heads, num_features, orthogonal_loss=False):
         super(ACM, self).__init__()
 
@@ -367,20 +236,6 @@ class ModulateModule(nn.Module):
         y = self.feature_gen(x)
         return y
 
-# # if __name__ == '__main__':
-# #     x1 = torch.randn(256 * 20 * 20 * 5).view(5, 256, 20, 20).float()
-# #     x1 = torch.rand(2, 320, 160).float()
-# #     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=True)
-# #     acm.init_parameters()
-# #     y, dp = acm(x1)
-# #     print(y.shape)
-# #     print(dp.shape)
-
-# #     ACM without orthogonal loss
-# #     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=False)
-# #     acm.init_parameters()
-# #     y = acm(x1)
-# #     print(x1.shape,y.shape)
 
 # import torch
 # import torch.nn as nn
@@ -1491,21 +1346,17 @@ class ModulateModule(nn.Module):
 
 from typing import Optional, Sequence, Union
 
+import monai
 from monai.networks.blocks import Convolution, UpSample
 from monai.networks.nets.basic_unet import TwoConv, Down, UpCat, UpSample, Union
 from monai.networks.layers.factories import Conv, Pool
 from monai.utils import deprecated_arg, ensure_tuple_rep
 
-import nets
-from nets import *
-
 from monai.networks.nets import ResNet, DenseNet, SENet
 from monai.networks.nets.resnet import ResNetBlock#, ResNetBottleneck
 from monai.networks.nets.senet import SEBottleneck, SEResNetBottleneck
-import torch.nn.functional as F 
 from functools import partial
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
-import torch
 from monai.networks.layers.factories import Act, Conv, Dropout, Norm, Pool
 
 class ResNetBottleneck(nn.Module):
@@ -1801,29 +1652,6 @@ class ResNetFeature(ResNet):
         x5 = self.layer4(x4)
         return x1, x2, x3, x4, x5
 
-# def bn2instance(module):
-#     module_output = module
-#     if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-#         module_output = torch.nn.InstanceNorm1d(module.num_features,
-#                                                 module.eps, module.momentum,
-#                                                 module.affine,
-#                                                 module.track_running_stats)
-#         if module.affine:
-#             with torch.no_grad():
-#                 module_output.weight = module.weight
-#                 module_output.bias = module.bias
-#         module_output.running_mean = module.running_mean
-#         module_output.running_var = module.running_var
-#         module_output.num_batches_tracked = module.num_batches_tracked
-#         if hasattr(module, "qconfig"):
-#             module_output.qconfig = module.qconfig
-
-#     for name, child in module.named_children():
-#         module_output.add_module(name, bn2instance(child))
-
-#     del module
-#     return module_output
-
 def _upsample_like(src,tar):
     src = F.upsample(src,size=tar.shape[2:], mode='linear')
     return src
@@ -1859,8 +1687,6 @@ from monai.networks.nets.basic_unet import TwoConv, Down, UpCat, UpSample, Union
 from monai.networks.layers.factories import Conv, Pool
 from monai.utils import deprecated_arg, ensure_tuple_rep
 
-import nets
-from nets import *
 
 from monai.networks.nets import ResNet, DenseNet, SENet
 from monai.networks.nets.resnet import ResNetBlock#, ResNetBottleneck
@@ -3521,7 +3347,6 @@ class UNet(nn.Module):
         fea = [yhat_.shape[1] for yhat_ in yhat]
         print(fea)
         
-        
         # skip modules
         self.skipModule = skipModule
         self.skip_1 = None
@@ -3553,7 +3378,6 @@ class UNet(nn.Module):
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
-            # norm = None
             l = int(skipModule.split('BOTTOM')[-1])
             # print(f"skipModule: {skipModule} {l}")
             self.skip_1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=5 else nn.Identity()
@@ -3631,7 +3455,6 @@ class UNet(nn.Module):
             self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
             self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
             self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        
         
         # multiTaskCLS
         self.mtl = None
@@ -3801,7 +3624,6 @@ class UNet(nn.Module):
             # return torch.sigmoid(logits), torch.sigmoid(s1), torch.sigmoid(s2), torch.sigmoid(s3), torch.sigmoid(s4), torch.sigmoid(s5) 
             # return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
             return [torch.sigmoid(logits), torch.sigmoid(out_cls)] if out_cls!=None else torch.sigmoid(logits)
-
         
         else:
             logits = self.final_conv(u0)

@@ -50,9 +50,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import *
 
-import os
-import nets
-
 import scipy
 import scipy.io as sio
 from scipy.signal import butter, filtfilt, lfilter
