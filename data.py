@@ -659,11 +659,11 @@ class MIT_DATASET():
         signal = remove_baseline_wander(signal,srTarget)
         signal = np.expand_dims(signal,0)
         
-        if self.normalize =='minmax_i':
+        if self.normalize =='minmaxI':
             signal = (signal - np.min(signal)) / (np.max(signal) - np.min(signal)) # normalize  
-        elif self.normalize =='zscore_i':
+        elif self.normalize =='zscoreI':
             signal = zscore(signal)
-        elif self.normalize =='zscore_o':
+        elif self.normalize =='zscoreO':
             signal = zscore(signal, self.mean, self.std)
             
         # signal = torch.tensor(signal).float() # shape should be Channel X Signal

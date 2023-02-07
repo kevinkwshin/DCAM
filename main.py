@@ -33,7 +33,7 @@ config_defaults = dict(
     sampler = True, # True, False
     inChannels = 1,
     outChannels = 2,
-    dataNorm ='minmax_i', # zscore_i, zscore_o, minmax_i
+    dataNorm ='minmaxI', # zscoreI, zscoreO, minmaxI
     
     project = 'PVC_NET',  # this is cutoff line of path_logRoot
     
