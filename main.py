@@ -30,24 +30,26 @@ config_defaults = dict(
     dataSeed = 1,
     srTarget = 250,
     featureLength = 1280,
-    sampler = True, 
+    sampler = True, # True, False
     inChannels = 1,
     outChannels = 2,
-    modelName='efficientnet-b0',
-    norm = 'instance',
+    dataNorm ='minmax_i', # zscore_i, zscore_o, minmax_i
+    
+    project = 'PVC_NET',  # this is cutoff line of path_logRoot
+    
+    modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2',
+    norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'deconv', #'pixelshuffle', # 'nontrainable'
-    supervision = "TYPE1",
-    skipModule = "SE_BOTTOM5",
+    supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
+    skipModule = "SE_BOTTOM5", 
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
-    dataNorm ='zscore',
-    
-    project = 'PVC_NET',
-    path_logRoot = '20230206_PY',
+
+    path_logRoot = '20230207_BASE',
     spatial_dims = 1,
     learning_rate = 4e-3,
     batch_size = 512, # 256
-    dropout = 0.1,
+    dropout = 0.01,
     thresholdRPeak = 0.5,
     skipASPP = "NONE",
     lossFn = 'bceloss',
@@ -83,7 +85,7 @@ def train():
     NS_dataset = MIT_DATASET(NS_data,featureLength, srTarget, classes, dataNorm, False)
     # STDB_dataset = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
     SVDB_dataset = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
-    AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
+    # AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
@@ -158,7 +160,7 @@ def test(path, testPlot=False):
     NS_dataset = MIT_DATASET(NS_data,featureLength, srTarget, classes, dataNorm, False)
     STDB_dataset = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
     SVDB_dataset = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
-    AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
+    # AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
     test_loader = DataLoader(test_dataset, batch_size = 64, num_workers=2, shuffle = False)
     AMC_loader = DataLoader(AMC_dataset,batch_size = 64, num_workers=2, shuffle = False)
@@ -201,7 +203,6 @@ def test(path, testPlot=False):
     result_SVDB = trainer.test(model, SVDB_loader)
 
     
-
 
 class PVC_NET(pl.LightningModule):
     def __init__(self,hyperparameters):

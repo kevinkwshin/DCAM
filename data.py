@@ -92,7 +92,7 @@ add_datainfo(INCART_data,16)
 add_datainfo(NS_data,17)
 add_datainfo(STDB_data,18)
 add_datainfo(SVDB_data,19)
-add_datainfo(AMCREAL_data,21)
+# add_datainfo(AMCREAL_data,21)
 print()
 
 def signal_distort(
@@ -513,7 +513,7 @@ def minmax(arr):
     """
     return (arr-np.min(arr))/(np.max(arr)-np.min(arr))
 
-def zscore(arr,mean=-0.3384129124895571, std=0.46460447466469895):
+def zscore(arr, mean=None, std=None):
     """
     numpy
     """
@@ -565,6 +565,8 @@ class MIT_DATASET():
         self.srTarget = srTarget
         self.featureLength = featureLength
         self.normalize = normalize
+        self.mean, self.std = EDA_zscore(data)
+        print('mean', self.mean, 'std', self.std)
         
     def __len__(self):
         return len(self.data)
@@ -657,10 +659,12 @@ class MIT_DATASET():
         signal = remove_baseline_wander(signal,srTarget)
         signal = np.expand_dims(signal,0)
         
-        if self.normalize =='instance':
+        if self.normalize =='minmax_i':
             signal = (signal - np.min(signal)) / (np.max(signal) - np.min(signal)) # normalize  
-        elif self.normalize =='zscore':
+        elif self.normalize =='zscore_i':
             signal = zscore(signal)
+        elif self.normalize =='zscore_o':
+            signal = zscore(signal, self.mean, self.std)
             
         # signal = torch.tensor(signal).float() # shape should be Channel X Signal
         signal = torch.from_numpy(signal.copy()).float()

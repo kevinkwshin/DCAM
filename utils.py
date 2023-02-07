@@ -156,6 +156,21 @@ def get_Binaryindex(arr):
         idxs.append(int(np.mean([start,end])))
     return idxs
 
+
+def EDA_zscore(arr_dataset):
+    all = []
+    for a in arr_dataset:
+        all.append(a['signal'])
+    all = np.array(all)#.flatten().all()
+    print(all.shape)
+    # all01 = np.percentile(all,1)
+    # all[all<all01] = all01
+    # all99 = np.percentile(all,99)
+    # all[all>all99] = all99
+    mean = np.mean(all)
+    std = np.std(all)
+    return mean, std
+
 def EDA():
     set_seed()
     hyperparameters = dict(config_defaults)
@@ -201,6 +216,7 @@ def EDA():
     SVDB_loader = DataLoader(SVDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
     
     loaders = [train_loader, valid_loader, test_loader, AMC_loader, CPSC2020_loader, ESC_loader, INCART_loader, NS_loader, SVDB_loader]
+    
     for l in loaders:
         batch = next(iter(l))
         signal_original = batch['signal_original']
