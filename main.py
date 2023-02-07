@@ -52,7 +52,7 @@ config_defaults = dict(
     dropout = 0.01,
     thresholdRPeak = 0.5,
     skipASPP = "NONE",
-    lossFn = 'bceloss',
+    lossFn = 'BCE',
     se = 'se',
     mtl = 'NONE'
 )
@@ -91,22 +91,23 @@ def train():
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
-    valid_loader = DataLoader(valid_dataset, batch_size = 64, shuffle = False, num_workers=2, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    AMC_loader = DataLoader(AMC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # CU_loader = DataLoader(CU_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    ESC_loader = DataLoader(ESC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    INCART_loader = DataLoader(INCART_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    NS_loader = DataLoader(NS_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    # STDB_loader = DataLoader(STDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    SVDB_loader = DataLoader(SVDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
+    batch_size = 128
+    alid_loader     = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
+    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # CU_loader       = DataLoader(CU_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch',)
-    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=10, verbose=False)
+    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=5, verbose=False)
     loss_checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_loss", save_top_k=1, verbose=False)
     # metric_checkpoint_callback = ModelCheckpoint(monitor='val_AUPRC_Class1Raw', mode='max', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_metric", save_top_k=1, verbose=False)
 
@@ -115,11 +116,11 @@ def train():
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=100, # 80
+                        max_epochs=200, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
-                        check_val_every_n_epoch=2,
+                        check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
                         callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback],# , StochasticWeightAveraging(swa_lrs=0.0001)], #
                         logger = wandb_logger,
@@ -130,16 +131,16 @@ def train():
     trainer.fit(model, train_loader, valid_loader)
     
     set_seed()
-    result_test = trainer.test(model, test_loader,ckpt_path='best')
-    result_AMC = trainer.test(model, AMC_loader,ckpt_path='best')
-    result_CPSC2020 = trainer.test(model, CPSC2020_loader,ckpt_path='best')
+    result_test = trainer.test(model, test_loader, ckpt_path='best')
+    result_AMC = trainer.test(model, AMC_loader, ckpt_path='best')
+    result_CPSC2020 = trainer.test(model, CPSC2020_loader, ckpt_path='best')
     # result_CU = trainer.test(model, CU_loader,ckpt_path='best')
-    result_ESC = trainer.test(model, ESC_loader,ckpt_path='best')
+    result_ESC = trainer.test(model, ESC_loader, ckpt_path='best')
     # result_FANTASIA = trainer.test(model, FANTASIA_loader,ckpt_path='best')
-    result_INCART = trainer.test(model, INCART_loader,ckpt_path='best')
-    result_NS = trainer.test(model, NS_loader,ckpt_path='best')
+    result_INCART = trainer.test(model, INCART_loader, ckpt_path='best')
+    result_NS = trainer.test(model, NS_loader, ckpt_path='best')
     # result_STDB = trainer.test(model, STDB_loader,ckpt_path='best')
-    result_SVDB = trainer.test(model, SVDB_loader,ckpt_path='best')
+    result_SVDB = trainer.test(model, SVDB_loader, ckpt_path='best')
 
 def test(path, testPlot=False):
     set_seed()
@@ -162,33 +163,33 @@ def test(path, testPlot=False):
     SVDB_dataset = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
     # AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
-    test_loader = DataLoader(test_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    AMC_loader = DataLoader(AMC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # CU_loader = DataLoader(CU_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    ESC_loader = DataLoader(ESC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    INCART_loader = DataLoader(INCART_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    NS_loader = DataLoader(NS_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    # # STDB_loader = DataLoader(STDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    SVDB_loader = DataLoader(SVDB_dataset, batch_size = 64, num_workers=2, shuffle = False)    
+    batch_size = 128
+    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # CU_loader       = DataLoader(CU_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     
     trainer = pl.Trainer(accumulate_grad_batches=8,
                         gradient_clip_val=0.1,
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=100, # 80
+                        max_epochs=200, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
-                        check_val_every_n_epoch=1,
+                        check_val_every_n_epoch=10,
                         # callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback],# , StochasticWeightAveraging(swa_lrs=0.0001)], #
                         # logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
     
-    # model.testPlot=True
     model.testPlot=testPlot
     
     result_test = trainer.test(model, test_loader)
@@ -202,7 +203,6 @@ def test(path, testPlot=False):
     # result_STDB = trainer.test(model, STDB_loader)
     result_SVDB = trainer.test(model, SVDB_loader)
 
-    
 
 class PVC_NET(pl.LightningModule):
     def __init__(self,hyperparameters):
@@ -274,21 +274,19 @@ class PVC_NET(pl.LightningModule):
 #                                                 spatial_dims = hyperparameters['spatial_dims'],)
             
         # define loss using hyperparameters
-        if hyperparameters['lossFn']=='bceloss':
+        if hyperparameters['lossFn']=='BCE':
             self.lossFn = nn.BCELoss()
-        elif hyperparameters['lossFn']=='wbceloss':
+        elif hyperparameters['lossFn']=='WBCE':
             self.lossFn = BCELoss_class_weighted([.2, .8])
-        elif hyperparameters['lossFn']=='diceceloss':
+        elif hyperparameters['lossFn']=='DICEBCE':
             # self.lossFn = monai.losses.DiceCELoss()
             self.lossFn = DiceBCE()
-        elif hyperparameters['lossFn']=='focalloss':
-            self.lossFn = FocalLoss(alpha=0.1,gamma=2)
+        elif hyperparameters['lossFn']=='FOCAL':
+            self.lossFn = FocalLoss(alpha=0.25, gamma=2)
             # self.lossFn = monai.losses.FocalLoss()
-        elif hyperparameters['lossFn']=='dicefocalloss':
+        elif hyperparameters['lossFn']=='DICEFOCAL':
             self.lossFn = monai.losses.DiceFocalLoss()
-        elif hyperparameters['lossFn']=='weightedfocalloss':
-            self.lossFn = WeightedFocalLoss()
-        elif hyperparameters['lossFn']=='propotionalLoss':
+        elif hyperparameters['lossFn']=='PROPOTIONAL':
             self.lossFn = PropotionalLoss(per_image=False, smooth=1e-7, beta=0.7, bce=True)
             
         self.save_hyperparameters()
@@ -322,8 +320,8 @@ class PVC_NET(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         # return optimizer
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
         # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-3, pct_start=0.02, total_steps=self.trainer.estimated_stepping_batches)
         return {'optimizer': optimizer,
                 'lr_scheduler': {'scheduler': scheduler, 'monitor': 'val_loss'}}

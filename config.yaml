@@ -7,23 +7,23 @@ metric:
 parameters:
     modelName:
         values: ['efficientnet-b0','efficientnet-b1','efficientnet-b2']
-    norm:
-        values: ['instance','group','layer','batch']
+    # norm:
+    #     values: ['instance','group','layer','batch']
     # featureLength:
     #     values: [1024, 1280]
     dataNorm:
-        values: ['zscore_i', 'zscore_o', 'minmax_i']
-    se_module:
-        values: ['se','acm','nlnn','deeprft','cbam']
+        values: ['zscoreI', 'zscoreO', 'minmaxI']
+    # se_module:
+    #     values: ['se','acm','nlnn','deeprft','cbam']
     lossFn:
-        values: ['bceloss','dicebceloss']
-    upsample:
-        values: ['deconv', 'pixelshuffle']
-    supervision: 
-        values: ['NONE','TYPE1','TYPE2']
-    trainaug:
-        values: ['NEUROKIT2']
-    skipModule:
-        values: ['NONE', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5']
-    segheadModule:
-        values: ['NONE','SE']
+        values: ['BCE','DICEBCE','PROPOTIONAL']
+    # upsample:
+    #     values: ['deconv', 'pixelshuffle']
+    # supervision: 
+    #     values: ['NONE','TYPE1','TYPE2']
+    # trainaug:
+    #     values: ['NONE', 'NEUROKIT2']
+    # skipModule:
+    #     values: ['NONE', 'SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5']
+    # segheadModule:
+    #     values: ['NONE','SE']
