@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 # modules
 class FFT_ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -26,3 +27,32 @@ class FFT_ConvBlock(nn.Module):
         # Mixing (residual, image, fourier)
         output = x + img + fft
         return output
+
+class DFF(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(DFF, self).__init__()
+                
+        self.conv_fft = torch.nn.Conv1d(in_channels*2, out_channels*2, kernel_size=1, stride=1, padding=0)
+        self.norm_fft   = nn.InstanceNorm1d(out_channels*2)
+        self.relu   = nn.LeakyReLU(0.1)
+        self.channelpool = ChannelPool()
+        
+        self.conv7 = nn.Conv1d(2, out_channels,kernel_size=7,stride=1,padding=3)
+
+    def forward(self, x):
+        print(x.shape)
+        x_f = torch.fft.rfft(x, norm='ortho')
+        x_f = torch.cat([x_f.real, x_f.imag], dim=1)
+        x_f = self.relu(self.norm_fft(self.conv_fft(x_f)))
+        print(x_f.shape)
+        
+        x_f_pool = self.channelpool(x_f)
+        print(x_f_cat.shape)
+        
+        x_f_output = torch.sigmoid(self.conv7(x_f_pool))
+        print(x_f_output.shape)        
+        
+        x_real, x_imag = torch.chunk(x_f, 2, dim=1)
+        x_f = torch.complex(x_real, x_imag)
+        x_f = torch.fft.irfft(x_f, norm='ortho')
+        return x_f

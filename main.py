@@ -125,7 +125,7 @@ def train():
                         deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback],# , StochasticWeightAveraging(swa_lrs=0.0001)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, StochasticWeightAveraging(swa_lrs=1e-5)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -222,7 +222,7 @@ class PVC_NET(pl.LightningModule):
         self.thresholdRPeak = self.hyperparameters['thresholdRPeak'] # 0.7
         self.learning_rate = self.hyperparameters['learning_rate']
         self.dataNorm =self.hyperparameters['dataNorm']
-        self.youden_index = 0.5
+        self.youden_index = 0.25
         self.testPlot = False
         
         if self.hyperparameters['norm'] =='layer':
@@ -291,7 +291,7 @@ class PVC_NET(pl.LightningModule):
             self.lossFn = monai.losses.DiceFocalLoss()
         elif hyperparameters['lossFn']=='PROPOTIONAL':
             self.lossFn = PropotionalLoss(per_image=False, smooth=1e-7, beta=0.7, bce=True)
-            
+                        
         self.save_hyperparameters()
         
     def compute_loss(self, yhat, y):
@@ -518,7 +518,7 @@ class PVC_NET(pl.LightningModule):
 
             auc = sklearn.metrics.roc_auc_score(ys, yhats)
             ap  = sklearn.metrics.average_precision_score(ys, yhats)
-            self.youden_index = find_maxF1(ys, yhats)
+            # self.youden_index = find_maxF1(ys, yhats)
             
             negativeIdx = np.where(ys == 0)
             positiveIdx = np.where(ys != 0)
