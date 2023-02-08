@@ -26,9 +26,9 @@ device = get_device()
 
 NUM_WORKERS = os.cpu_count()
 print("Number of workers:", NUM_WORKERS)
-print('multiprocessing.cpu_count()', multiprocessing.cpu_count())
+# print('multiprocessing.cpu_count()', multiprocessing.cpu_count())
 print('cuda.is_available', torch.cuda.is_available())
-print(device)
+# print(device)
 # print_config()
         
 config_defaults = dict(
@@ -78,24 +78,25 @@ def train():
     # train_data, valid_data = seed_MITBIH(train_files, model.hyperparameters['dataSeed'])
     train_data, valid_data = FOLD5_MITBIH(train_files, model.hyperparameters['dataSeed'])
     
-    train_dataset = MIT_DATASET(train_data,featureLength,srTarget, classes, dataNorm, model.hyperparameters['trainaug'], True)
-    valid_dataset = MIT_DATASET(valid_data,featureLength,srTarget, classes, dataNorm, False)
-    test_dataset = MIT_DATASET(test_data,featureLength,srTarget, classes, dataNorm, False)
-    AMC_dataset = MIT_DATASET(AMC_data,featureLength,srTarget, classes, dataNorm, False)
+    train_dataset    = MIT_DATASET(train_data,featureLength,srTarget, classes, dataNorm, model.hyperparameters['trainaug'], True)
+    valid_dataset    = MIT_DATASET(valid_data,featureLength,srTarget, classes, dataNorm, False)
+    test_dataset     = MIT_DATASET(test_data,featureLength,srTarget, classes, dataNorm, False)
+    AMC_dataset      = MIT_DATASET(AMC_data,featureLength,srTarget, classes, dataNorm, False)
     CPSC2020_dataset = MIT_DATASET(CPSC2020_data,featureLength, srTarget, classes, dataNorm,False)
-    # CU_dataset = MIT_DATASET(CU_data,featureLength, srTarget, classes, False)
-    ESC_dataset = MIT_DATASET(ESC_data,featureLength, srTarget, classes, False)
+    # CU_dataset       = MIT_DATASET(CU_data,featureLength, srTarget, classes, False)
+    ESC_dataset      = MIT_DATASET(ESC_data,featureLength, srTarget, classes, False)
     # FANTASIA_dataset = MIT_DATASET(FANTASIA_data,featureLength, srTarget, classes, False)
-    INCART_dataset = MIT_DATASET(INCART_data,featureLength, srTarget, classes, dataNorm, False)
-    NS_dataset = MIT_DATASET(NS_data,featureLength, srTarget, classes, dataNorm, False)
-    # STDB_dataset = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
-    SVDB_dataset = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
-    # AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
+    INCART_dataset   = MIT_DATASET(INCART_data,featureLength, srTarget, classes, dataNorm, False)
+    NS_dataset       = MIT_DATASET(NS_data,featureLength, srTarget, classes, dataNorm, False)
+    # STDB_dataset     = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
+    SVDB_dataset     = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
+    # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
     if model.hyperparameters['sampler']:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//2, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
     else:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//2, pin_memory=True, drop_last=True)
+
     batch_size = 128
     valid_loader     = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
@@ -992,12 +993,25 @@ def EDA(config_defaults):
     SVDB_dataset     = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
     # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
-    if model.hyperparameters['sampler']:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
-    else:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
-
     batch_size = 1
+
+    if model.hyperparameters['sampler']:
+        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
+    else:
+        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True, num_workers=4, pin_memory=True)
+    
+    p = []
+    n = []
+    for idx, batch in enumerate(train_loader):
+        y_PVC = batch['y_PVC']
+        fname = batch['fname']
+        
+        if 1 in y_PVC:
+            p.append(fname)
+        else:
+            n.append(fname)
+    print(f'check train sampler, positive segment: {len(p)} negative segment:{len(n)}')
+
     valid_loader    = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
@@ -1017,7 +1031,7 @@ def EDA(config_defaults):
         signal_original = batch['signal_original']
         signal = batch['signal']
         y_seg = batch['y_seg']
-        print(f"dataSource:{batch['dataSource'][0]} fname:{batch['pid'][0]} shape:{signal.shape} unique:{torch.unique(signal)}")
+        print(f"dataSource:{batch['dataSource'][0]} totalCount:{len(l)} fname:{batch['pid'][0]} shape:{signal.shape} unique:{torch.unique(signal)} ")
         
         i = 0
         idx_QRS = get_Binaryindex(y_seg[i,0].numpy())

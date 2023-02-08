@@ -14,8 +14,7 @@ INCART_data  = np.load('dataset/INCART_testSeg.npy',allow_pickle=True)
 NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
 STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
 SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
-AMCREAL_data = np.load('dataset/AMCREAL_testSeg.npy',allow_pickle=True)
-
+# AMCREAL_data = np.load('dataset/AMCREAL_testSeg.npy',allow_pickle=True)
 
 def add_datainfo(data, info_string):
     new_data = []
