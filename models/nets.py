@@ -3071,8 +3071,8 @@ class UNet(nn.Module):
         upsample: str = "deconv", # [deconv, nontrainable, pixelshuffle]
         supervision = "NONE", #[None,'old','new']
         skipModule= "NONE",
+        skipASPP="NONE", # no more skipASPP
         segheadModule ="NONE",
-        skipASPP = "NONE",
         se_module= 'se',
         mtl="NONE"
     ):
@@ -3095,7 +3095,6 @@ class UNet(nn.Module):
             se_module : 'se', 'acm', 'ffc', 'deeprft', 'nlnn'
             skipModule : '[Module]_[BOTTOM#]'-->'FFC','DEEPRFT','ACM8','NONE','ACM2','ACM4','NLNN','SE'
                                              -->'BOTTOM5','BOTTOM4','BOTTOM3','BOTTOM2','BOTTOM1'
-            skipASPP : -->'BOTTOM5','BOTTOM4','BOTTOM3','BOTTOM2','BOTTOM1','NONE'
             
         <example>
         net = UNet(modelName='efficientnet-b2', spatial_dims = 1, in_channels = 1, out_channels = 4, norm='instance', upsample='pixelshuffle', nnblock=True, ASPP='all', supervision=True, FFC='FFC', TRB=True)
@@ -3221,35 +3220,35 @@ class UNet(nn.Module):
             self.skip_4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01) if l>=2 else nn.Identity()
             self.skip_5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01) if l>=1 else nn.Identity()
             
-        self.skipASPP=skipASPP
-        self.ASPP_1 = nn.Identity()
-        self.ASPP_2 = nn.Identity()
-        self.ASPP_3 = nn.Identity()
-        self.ASPP_4 = nn.Identity()
-        self.ASPP_5 = nn.Identity()
-        print(f"skipASPP: {self.skipASPP}")
-        if self.skipASPP=='NONE':
-            pass
-        elif self.skipASPP=='BOTTOM1':
-            self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        elif self.skipASPP=='BOTTOM2':
-            self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        elif self.skipASPP=='BOTTOM3':
-            self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        elif self.skipASPP=='BOTTOM4':
-            self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        elif self.skipASPP=='BOTTOM5':
-            self.ASPP_1 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[0], conv_out_channels=fea[0]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-            self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
+        # self.skipASPP=skipASPP
+        # self.ASPP_1 = nn.Identity()
+        # self.ASPP_2 = nn.Identity()
+        # self.ASPP_3 = nn.Identity()
+        # self.ASPP_4 = nn.Identity()
+        # self.ASPP_5 = nn.Identity()
+        # print(f"skipASPP: {self.skipASPP}")
+        # if self.skipASPP=='NONE':
+        #     pass
+        # elif self.skipASPP=='BOTTOM1':
+        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
+        # elif self.skipASPP=='BOTTOM2':
+        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
+        # elif self.skipASPP=='BOTTOM3':
+        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
+        # elif self.skipASPP=='BOTTOM4':
+        #     self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
+        # elif self.skipASPP=='BOTTOM5':
+        #     self.ASPP_1 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[0], conv_out_channels=fea[0]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
+        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
         
         # multiTaskCLS
         self.mtl = None
@@ -3285,6 +3284,7 @@ class UNet(nn.Module):
         print(f"segheadModule: {segheadModule}")
         if segheadModule == "NONE":
             self.segheadModule = nn.Identity()
+
         elif 'ACM' in segheadModule:
             group = int(segheadModule.split('ACM')[-1][0])
             self.ACMLambda = float(segheadModule.split('_')[-1])
@@ -3293,19 +3293,21 @@ class UNet(nn.Module):
                 self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=False)
             else:
                 self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=True)
+
         elif 'NLNN' in segheadModule:
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
             self.segheadModule = NLBlockND(in_channels=supervision_c, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+
         elif 'FFC' in segheadModule:
-            self.segheadModule = FFC_BN_ACT(supervision_c,supervision_c)            
+            self.segheadModule = FFC_BN_ACT(supervision_c,supervision_c)       
+
         elif 'DEEPRFT' in segheadModule:
             self.segheadModule = FFT_ConvBlock(supervision_c,supervision_c)
+
         elif 'SE' in segheadModule:
-            # self.segheadModule = monai.networks.blocks.ChannelSELayer(spatial_dims,supervision_c)
             self.segheadModule = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
-            # self.segheadModule = monai.networks.blocks.SEBlock(spatial_dims, in_channels, n_chns_1, n_chns_2, n_chns_3)
         elif 'CBAM' in segheadModule:
             self.segheadModule = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
         self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
@@ -3368,15 +3370,6 @@ class UNet(nn.Module):
                 dp5 = torch.abs(dp5.mean())
             if dp1!=0 or dp2!=0 or dp!=0 or dp4!=0 or dp5!=0:
                 dp = self.ACMLambda * (dp1+dp2+dp3+dp4+dp5)
-            
-        if self.skipASPP==None or self.skipASPP=='NONE':
-            pass
-        else:
-            x1 = self.ASPP_1(x1)
-            x2 = self.ASPP_2(x2)
-            x3 = self.ASPP_3(x3)
-            x4 = self.ASPP_4(x4)
-            x5 = self.ASPP_5(x5)
                                         
         out_cls= None            
         if self.mtl:

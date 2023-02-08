@@ -65,8 +65,6 @@ from neurokit2.misc import NeuroKitWarning, listify
 from neurokit2.signal.signal_resample import signal_resample
 from neurokit2.signal.signal_simulate import signal_simulate
 
-from main import *
-
 def set_seed(seed=42):
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)

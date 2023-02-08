@@ -1,6 +1,7 @@
 import os, sys, shutil
 os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
 os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
+
 # export http_proxy=http://192.168.45.100:3128
 # export https_proxy=https://192.168.45.100:3128
 
@@ -20,6 +21,7 @@ import models.nets as nets
 
 run_command('nvcc -V')
 run_command('nvidia-smi')
+run_command('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 device = get_device()
 
 NUM_WORKERS = os.cpu_count()
@@ -36,7 +38,7 @@ config_defaults = dict(
     sampler = True, # True, False
     inChannels = 1,
     outChannels = 2,
-    dataNorm ='minmaxI', # zscoreI, zscoreO, minmaxI
+    dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
     
     project = 'PVC_NET',  # this is cutoff line of path_logRoot
     
@@ -263,7 +265,7 @@ class PVC_NET(pl.LightningModule):
             
 #         elif 'unetr' in hyperparameters['modelName']:
 #             self.net= monai.networks.nets.UNETR(hyperparameters['in_channels'], 
-#                                                 hyperparameters['out_channels'], 
+#                                                 hyperparameters['out_channels'],
 #                                                 2048,
 #                                                 feature_size = 16,
 #                                                 hidden_size = 768,
