@@ -6,6 +6,7 @@ import torch.nn.functional as F
 class ACM(nn.Module):
     """
     if __name__ == '__main__':
+        import torch
         x1 = torch.randn(256 * 20 * 20 * 5).view(5, 256, 20, 20).float()
         x1 = torch.rand(2, 320, 160).float()
         acm = ACM(num_heads=32, num_features=320, orthogonal_loss=True)
@@ -48,14 +49,15 @@ class ACM(nn.Module):
         
         mu = x.mean([2], keepdim=True)
         x_mu = x - mu
+        # print('mu',mu.shape, 'x_mu', x_mu.shape)
 
         # creates multipying feature
         mul_feature = self.mul_mod(mu)  # P
+        # print('mul_feature', mul_feature.shape)
 
         # creates add or sub feature
         add_feature = self.add_mod(x_mu)  # K
         sub_feature = self.sub_mod(x_mu)  # Q
-        # print(x_mu.shape,add_feature.shape,sub_feature.shape,mul_feature.shape)
         y = (x + add_feature - sub_feature) * mul_feature
 
         if self.orthogonal_loss:
@@ -92,19 +94,26 @@ class AttendModule(nn.Module):
         b, c, h = xhats.shape
         # xhat reshape
         xhats_reshape = xhats.view(b * self.num_heads, self.num_c_per_head, h)
-        xhats_reshape = xhats_reshape.view(b * self.num_heads, self.num_c_per_head, h )
+        # print('xhats_reshape',xhats_reshape.shape)
+        # xhats_reshape = xhats_reshape.view(b * self.num_heads, self.num_c_per_head, h)
+        # print('xhats_reshape',xhats_reshape.shape)
 
         # weight reshape
         weights_reshape = weights.view(b * self.num_heads, 1, h)
-        weights_reshape = weights_reshape.view(b * self.num_heads, 1, h)
+        # print('weights_reshape',weights_reshape.shape)
+        # weights_reshape = weights_reshape.view(b * self.num_heads, 1, h)
+        # print('weights_reshape',weights_reshape.shape)
 
         weights_normalized = self.normalize(weights_reshape)
-        # print(weights_normalized)
+        # print('weights_normalized',weights_normalized.shape)
         weights_normalized = weights_normalized.transpose(1, 2)
+        # print('weights_normalized',weights_normalized.shape)
 
         mus = torch.bmm(xhats_reshape, weights_normalized)
         # mus = mus.view(b, self.num_heads * self.num_c_per_head, 1, 1)
+        # print('mus',mus.shape)
         mus = mus.view(b, self.num_heads * self.num_c_per_head, 1)
+        # print('mus',mus.shape)
 
         return mus, weights_normalized
 
@@ -118,12 +127,12 @@ class AttendModule(nn.Module):
 
         if self.return_weight:
             weights_normalized = weights_normalized.view(b, self.num_heads, h)
-            weights_normalized = weights_normalized.squeeze(-1)
+            # weights_normalized = weights_normalized.squeeze(-1)
             # print(weights_normalized.shape)
 
-            weights_normalized = weights_normalized.view(b, self.num_heads, h)
+            # weights_normalized = weights_normalized.view(b, self.num_heads, h)
             weights_splitted = torch.split(weights_normalized, 1, 1)
-            # print(weights_splitted.shape)
+            # print(weights_normalized.shape, weights_splitted.shape)
             return mus, weights_splitted
 
         return mus
@@ -134,11 +143,9 @@ class ModulateModule(nn.Module):
     def __init__(self, channel, num_groups=32, compressions=2):
         super(ModulateModule, self).__init__()
         self.feature_gen = nn.Sequential(
-            nn.Conv1d(channel, channel // compressions, kernel_size=1, stride=1, padding=0, bias=True,
-                      groups=num_groups),
+            nn.Conv1d(channel, channel // compressions, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
             nn.ReLU(inplace=True),
-            nn.Conv1d(channel // compressions, channel, kernel_size=1, stride=1, padding=0, bias=True,
-                      groups=num_groups),
+            nn.Conv1d(channel // compressions, channel, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
             nn.Sigmoid()
         )
 
@@ -152,3 +159,17 @@ class ModulateModule(nn.Module):
         y = self.feature_gen(x)
         return y
 
+# if __name__ == '__main__':
+#     import torch
+#     x1 = torch.rand(2, 320, 160).float()
+#     print('x1',x1.shape)
+#     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=True)
+#     acm.init_parameters()
+#     y, dp = acm(x1)
+#     print('y1', y.shape, 'dp', dp.shape)
+
+#     # ACM without orthogonal loss
+#     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=False)
+#     acm.init_parameters()
+#     y = acm(x1)
+#     print(x1.shape, y.shape)
