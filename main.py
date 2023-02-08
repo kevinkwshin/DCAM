@@ -53,7 +53,7 @@ config_defaults = dict(
     learning_rate = 4e-3,
     batch_size = 512, # 256
     dropout = 0.01,
-    thresholdRPeak = 0.5,
+    thresholdRPeak = 0.7,
     skipASPP = "NONE",
     lossFn = 'BCE',
     se = 'se',
@@ -285,13 +285,13 @@ class PVC_NET(pl.LightningModule):
             # self.lossFn = monai.losses.DiceCELoss()
             self.lossFn = DiceBCE()
         elif hyperparameters['lossFn']=='FOCAL':
-            self.lossFn = FocalLoss(alpha=0.25, gamma=2)
+            self.lossFn = FocalLoss(alpha=1, gamma=2)
             # self.lossFn = monai.losses.FocalLoss()
         elif hyperparameters['lossFn']=='DICEFOCAL':
             self.lossFn = monai.losses.DiceFocalLoss()
         elif hyperparameters['lossFn']=='PROPOTIONAL':
             self.lossFn = PropotionalLoss(per_image=False, smooth=1e-7, beta=0.7, bce=True)
-                        
+
         self.save_hyperparameters()
         
     def compute_loss(self, yhat, y):
@@ -961,6 +961,7 @@ class PVC_NET(pl.LightningModule):
             plt.savefig(f"{self.hyperparameters['path_logRoot']}/{self.experiment_name}/result/{self.dataSource}/{str(fname[idx])}.png")
             plt.close()
 
+
 def EDA(config_defaults):
     set_seed()
     hyperparameters = dict(config_defaults)
@@ -993,18 +994,20 @@ def EDA(config_defaults):
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=4, pin_memory=True)
-    valid_loader    = DataLoader(valid_dataset, batch_size = 64, shuffle = False, num_workers=2, pin_memory=True)
-    test_loader     = DataLoader(test_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    AMC_loader      = DataLoader(AMC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # CU_loader = DataLoader(CU_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    ESC_loader      = DataLoader(ESC_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = 64, num_workers=2, shuffle = False)
-    INCART_loader   = DataLoader(INCART_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    NS_loader       = DataLoader(NS_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    # STDB_loader   = DataLoader(STDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = 64, num_workers=2, shuffle = False)
-    
+
+    batch_size = 1
+    valid_loader    = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
+    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # CU_loader       = DataLoader(CU_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+
     loaders = [train_loader, valid_loader, test_loader, AMC_loader, CPSC2020_loader, ESC_loader, INCART_loader, NS_loader, SVDB_loader]
     
     for l in loaders:
