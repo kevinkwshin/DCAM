@@ -6,7 +6,7 @@ os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
 # export https_proxy=https://192.168.45.100:3128
 
 # !pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet
-os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
+# os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
 gpus= "0,1,2,3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -21,7 +21,7 @@ import models.nets as nets
 
 run_command('nvcc -V')
 run_command('nvidia-smi')
-run_command('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
+# run_command('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 device = get_device()
 
 NUM_WORKERS = os.cpu_count()
