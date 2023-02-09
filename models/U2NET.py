@@ -11,7 +11,7 @@ def _upsample_like(src,tar):
 
 
 class REBNCONV(nn.Module):
-    def __init__(self,in_ch=1,out_ch=1,dirate=1,dropout=0.1,norm='instance'):
+    def __init__(self,in_ch=1, out_ch=1, dirate=1, dropout=0.1, norm='instance'):
         super(REBNCONV,self).__init__()
 
         self.conv_s1 = nn.Conv1d(in_ch,out_ch,3,padding=1*dirate,dilation=1*dirate)

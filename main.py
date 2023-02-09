@@ -127,8 +127,8 @@ def train():
                         strategy ='dp',
                         max_epochs=500, # 80
                         sync_batchnorm=True,
-                        benchmark=False,
-                        deterministic=True,
+                        # benchmark=False,
+                        # deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
                         callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.6, swa_lrs=1e-5)], #
@@ -136,10 +136,10 @@ def train():
                         precision= 32 # 'bf16', 16, 32
     )
     
-    set_seed()
+    # set_seed()
     trainer.fit(model, train_loader, valid_loader)
     
-    set_seed()
+    # set_seed()
     result_test = trainer.test(model, test_loader, ckpt_path='best')
     result_AMC = trainer.test(model, AMC_loader, ckpt_path='best')
     result_CPSC2020 = trainer.test(model, CPSC2020_loader, ckpt_path='best')
@@ -306,6 +306,7 @@ class PVC_NET(pl.LightningModule):
             # yhat, loss_dp = yhat # ACM loss
             # loss = self.lossFn(yhat,y) # ACM loss
             # loss = loss + loss_dp # ACM loss
+
             # yhat, yhat_mtl = yhat
             # loss = self.lossFn(yhat,y) + self.lossFn(yhat_mtl.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
             # loss = F.binary_cross_entropy(yhat,y) + F.binary_cross_entropy(yhat_mtl, F.adaptive_max_pool1d(y,1))
@@ -338,7 +339,7 @@ class PVC_NET(pl.LightningModule):
                 return result[return_idx]
             else:
                 return result        
-        return sliding_window_inference(x, self.featureLength, 8, predictor, mode='gaussian', overlap=0.75)
+        return sliding_window_inference(x, self.featureLength, 128, predictor, mode='gaussian', overlap=0.75)
         
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
