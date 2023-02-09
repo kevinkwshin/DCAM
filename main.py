@@ -1,6 +1,7 @@
 import os, sys, shutil
 os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
 os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
+import bagua_core; bagua_core.install_deps()
 
 # export http_proxy=http://192.168.45.100:3128
 # export https_proxy=https://192.168.45.100:3128
@@ -44,7 +45,7 @@ config_defaults = dict(
     
     modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2',
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
-    upsample = 'deconv', #'pixelshuffle', # 'nontrainable'
+    upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
     skipModule = "SE_BOTTOM5", 
     segheadModule = "SE",
@@ -93,42 +94,44 @@ def train():
     # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
     if model.hyperparameters['sampler']:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//2, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
     else:
-        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//2, pin_memory=True, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
 
     batch_size = 128
-    valid_loader     = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
-    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # CU_loader       = DataLoader(CU_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+
     
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch',)
-    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=5, verbose=False)
+    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=12, verbose=False)
     loss_checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_loss", save_top_k=1, verbose=False)
     # metric_checkpoint_callback = ModelCheckpoint(monitor='val_AUPRC_Class1Raw', mode='max', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_metric", save_top_k=1, verbose=False)
 
-    trainer = pl.Trainer(accumulate_grad_batches=8,
+    trainer = pl.Trainer(accumulate_grad_batches=2,
                         gradient_clip_val=0.1,
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=400, # 80
+                        max_epochs=500, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, StochasticWeightAveraging(swa_lrs=1e-5)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.6, swa_lrs=1e-5)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -282,18 +285,16 @@ class PVC_NET(pl.LightningModule):
         # define loss using hyperparameters
         if hyperparameters['lossFn']=='BCE':
             self.lossFn = nn.BCELoss()
-        elif hyperparameters['lossFn']=='WBCE':
-            self.lossFn = BCELoss_class_weighted([.2, .8])
-        elif hyperparameters['lossFn']=='DICEBCE':
-            # self.lossFn = monai.losses.DiceCELoss()
-            self.lossFn = DiceBCE()
         elif hyperparameters['lossFn']=='FOCAL':
-            self.lossFn = FocalLoss(alpha=1, gamma=2)
-            # self.lossFn = monai.losses.FocalLoss()
-        elif hyperparameters['lossFn']=='DICEFOCAL':
-            self.lossFn = monai.losses.DiceFocalLoss()
-        elif hyperparameters['lossFn']=='PROPOTIONAL':
-            self.lossFn = PropotionalLoss(per_image=False, smooth=1e-7, beta=0.7, bce=True)
+            self.lossFn = monai.losses.FocalLoss(include_background=True, gamma=2, reduction='none')
+        elif hyperparameters['lossFn']=='BCEFOCAL':
+            self.lossFn = BCEFocalLoss(alpha=1, gamma=2)
+        # elif hyperparameters['lossFn']=='DICEBCE':
+        #     self.lossFn = DiceBCE()
+        # elif hyperparameters['lossFn']=='DICEFOCAL':
+        #     self.lossFn = monai.losses.DiceFocalLoss()
+        # elif hyperparameters['lossFn']=='PROPOTIONAL':
+        #     self.lossFn = PropotionalLoss(per_image=False, smooth=1e-7, beta=0.7, bce=True)
 
         self.save_hyperparameters()
         
@@ -996,33 +997,33 @@ def EDA(config_defaults):
     batch_size = 1
 
     if model.hyperparameters['sampler']:
-        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = False, num_workers=4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
+        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset))
+        valid_loader = DataLoader(valid_dataset, batch_size = batch_size//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset))
     else:
-        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True, num_workers=4, pin_memory=True)
-    
+        train_loader = DataLoader(train_dataset, batch_size = batch_size, shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = batch_size//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
+
     p = []
     n = []
     for idx, batch in enumerate(train_loader):
         y_PVC = batch['y_PVC']
         fname = batch['fname']
-        
         if 1 in y_PVC:
             p.append(fname)
         else:
             n.append(fname)
     print(f'check train sampler, positive segment: {len(p)} negative segment:{len(n)}')
 
-    valid_loader    = DataLoader(valid_dataset, batch_size = batch_size, shuffle = False, num_workers=2, pin_memory=True)
-    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # CU_loader       = DataLoader(CU_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
+    ESC_loader      = DataLoader(ESC_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # FANTASIA_loader = DataLoader(FANTASIA_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
-    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    INCART_loader   = DataLoader(INCART_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
+    NS_loader       = DataLoader(NS_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
-    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
+    SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
 
     loaders = [train_loader, valid_loader, test_loader, AMC_loader, CPSC2020_loader, ESC_loader, INCART_loader, NS_loader, SVDB_loader]
     

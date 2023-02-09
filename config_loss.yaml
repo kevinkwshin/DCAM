@@ -15,8 +15,10 @@ parameters:
     #     values: ['zscoreI', 'zscoreO', 'minmaxI']
     # se_module:
     #     values: ['se','acm','nlnn','deeprft','cbam']
+    sampler:
+        values: [True, False]
     lossFn:
-        values: ['BCE', 'DICEBCE', 'PROPOTIONAL', 'FOCAL']
+        values: ['BCE', 'FOCAL', 'BCEFOCAL']
     # upsample:
     #     values: ['deconv', 'pixelshuffle']
     # supervision: 

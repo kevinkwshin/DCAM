@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 import monai
 
-
 class DiceBCE(nn.Module):
     def __init__(self):
         super(DiceBCE, self).__init__()
@@ -55,21 +54,20 @@ class PropotionalLoss(nn.Module):
         if self.bce:
             return score_per_image + F.binary_cross_entropy(y_pred, y_true)
 
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=.25, gamma=2, weight=None, size_average=True):
+class BCEFocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2):
         super(FocalLoss, self).__init__()
         self.alpha = alpha 
-        self.gamma = gamma 
+        self.gamma = gamma
 
     def forward(self, inputs, targets):
         
         #flatten label and prediction tensors
         inputs = inputs.view(-1)
         targets = targets.view(-1)
-        
-        #first compute binary cross-entropy 
+        # first compute binary cross-entropy 
         BCE = F.binary_cross_entropy(inputs, targets, reduction='mean')
         BCE_EXP = torch.exp(-BCE)
         focal_loss = self.alpha * (1-BCE_EXP)**self.gamma * BCE
                        
-        return focal_loss
+        return focal_loss + BCE
