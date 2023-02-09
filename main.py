@@ -289,6 +289,8 @@ class PVC_NET(pl.LightningModule):
             self.lossFn = monai.losses.FocalLoss(include_background=True, gamma=2, reduction='none')
         elif hyperparameters['lossFn']=='BCEFOCAL':
             self.lossFn = BCEFocalLoss(alpha=1, gamma=2)
+        # elif hyperparameters['lossFn']=='U2NETLOSS':
+        #     self.lossFn = U2NETLOSS
         # elif hyperparameters['lossFn']=='DICEBCE':
         #     self.lossFn = DiceBCE()
         # elif hyperparameters['lossFn']=='DICEFOCAL':
@@ -300,12 +302,26 @@ class PVC_NET(pl.LightningModule):
         
     def compute_loss(self, yhat, y):
         if isinstance(yhat,list) or isinstance(yhat,tuple):
+
             # yhat, loss_dp = yhat # ACM loss
             # loss = self.lossFn(yhat,y) # ACM loss
             # loss = loss + loss_dp # ACM loss
-            yhat, yhat_mtl = yhat
-            loss = self.lossFn(yhat,y) + self.lossFn(yhat_mtl.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+            # yhat, yhat_mtl = yhat
+            # loss = self.lossFn(yhat,y) + self.lossFn(yhat_mtl.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
             # loss = F.binary_cross_entropy(yhat,y) + F.binary_cross_entropy(yhat_mtl, F.adaptive_max_pool1d(y,1))
+
+            d0, d1, d2, d3, d4, d5, d6 = yhat
+            loss0 = self.lossFn(d0,y)
+            loss1 = self.lossFn(d1,y)
+            loss2 = self.lossFn(d2,y)
+            loss3 = self.lossFn(d3,y)
+            loss4 = self.lossFn(d4,y)
+            loss5 = self.lossFn(d5,y)
+            loss6 = self.lossFn(d6,y)
+
+            loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+            return loss
+
             
         else:
             loss = self.lossFn(yhat, y)

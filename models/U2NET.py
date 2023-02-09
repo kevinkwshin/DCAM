@@ -586,7 +586,7 @@ class U2NETP(nn.Module):
 
 bce_loss = nn.BCELoss()
 
-def muti_bce_loss_fusion(yhat, y):
+def U2NETLOSS(yhat, y):
     d0, d1, d2, d3, d4, d5, d6 = yhat
     labels_v = y
     loss0 = bce_loss(d0,labels_v)
@@ -599,5 +599,3 @@ def muti_bce_loss_fusion(yhat, y):
 
     loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
     return loss
-
-lossfn = muti_bce_loss_fusion
