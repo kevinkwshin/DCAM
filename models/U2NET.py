@@ -10,6 +10,26 @@ def _upsample_like(src,tar):
     return src
 
 
+class REBNCONV(nn.Module):
+    def __init__(self,in_ch=1,out_ch=1,dirate=1,dropout=0.1,norm='instance'):
+        super(REBNCONV,self).__init__()
+
+        self.conv_s1 = nn.Conv1d(in_ch,out_ch,3,padding=1*dirate,dilation=1*dirate)
+        if norm=='instance':
+            self.bn_s1 = nn.InstanceNorm1d(out_ch)
+        elif norm=='batch':
+            self.bn_s1 = nn.BatchNorm1d(out_ch)    
+        self.relu_s1 = nn.LeakyReLU(0.1)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self,x):
+
+        hx = x
+        xout = self.relu_s1(self.bn_s1(self.conv_s1(hx)))
+        xout = self.dropout(xout)
+        
+        return xout
+
 
 ### RSU-7 ###
 class RSU7(nn.Module):#UNet07DRES(nn.Module):
@@ -303,7 +323,7 @@ class RSU4F(nn.Module):#UNet04FRES(nn.Module):
 ##### U^2-Net ####
 class U2NET(nn.Module):
 
-    def __init__(self,in_ch=1,out_ch=1,nnblock=False, FFC=False, acm=False, ASPP=False, temperature=1, dropout=0.1, norm='instance'):
+    def __init__(self, in_ch=1, out_ch=1, skipModule='NONE', temperature=1, dropout=0.1, norm='instance'):
         super(U2NET,self).__init__()
 
         self.stage1 = RSU7(in_ch,32,64,dropout=dropout, norm= norm)
@@ -340,59 +360,50 @@ class U2NET(nn.Module):
         self.outconv = nn.Conv1d(6*out_ch,out_ch,1)
         
         fea = [64, 128, 256, 512, 512, 512]
-        self.nnblock = nnblock
-        if nnblock:
-            spatial_dims = 1
-            self.nnblock1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.nnblock2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.nnblock3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.nnblock4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.nnblock5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)     
-            self.nnblock6 = NLBlockND(in_channels=fea[5], mode='embedded', dimension=spatial_dims, norm_layer=norm)                      
 
-        self.FFC = FFC
-        if FFC=='FFC':
-            self.FFCblock1 = FFC_BN_ACT(fea[0],fea[0])
-            self.FFCblock2 = FFC_BN_ACT(fea[1],fea[1])
-            self.FFCblock3 = FFC_BN_ACT(fea[2],fea[2])
-            self.FFCblock4 = FFC_BN_ACT(fea[3],fea[3])
-            self.FFCblock5 = FFC_BN_ACT(fea[4],fea[4])
-            self.FFCblock6 = FFC_BN_ACT(fea[5],fea[5])            
-        elif FFC=='DeepRFT':
-            self.FFCblock1 = FFT_ConvBlock(fea[0],fea[0])
-            self.FFCblock2 = FFT_ConvBlock(fea[1],fea[1])
-            self.FFCblock3 = FFT_ConvBlock(fea[2],fea[2])
-            self.FFCblock4 = FFT_ConvBlock(fea[3],fea[3])
-            self.FFCblock5 = FFT_ConvBlock(fea[4],fea[4])
-            self.FFCblock6 = FFT_ConvBlock(fea[5],fea[5])
+        self.skipModule = skipModule
+        if self.skipModule == 'NONE':
+            self.skipModule1 = nn.Identity()
+            self.skipModule2 = nn.Identity()
+            self.skipModule3 = nn.Identity()
+            self.skipModule4 = nn.Identity()
+            self.skipModule5 = nn.Identity()
+            self.skipModule6 = nn.Identity()
+        
+        if 'NN' in self.skipModule:
+            spatial_dims = 1
+            self.skipModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.skipModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.skipModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.skipModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.skipModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)     
+            self.skipModule6 = NLBlockND(in_channels=fea[5], mode='embedded', dimension=spatial_dims, norm_layer=norm)                      
+
+        if 'FFC' in self.skipModule:
+            self.skipModule1 = FFC_BN_ACT(fea[0],fea[0])
+            self.skipModule2 = FFC_BN_ACT(fea[1],fea[1])
+            self.skipModule3 = FFC_BN_ACT(fea[2],fea[2])
+            self.skipModule4 = FFC_BN_ACT(fea[3],fea[3])
+            self.skipModule5 = FFC_BN_ACT(fea[4],fea[4])
+            self.skipModule6 = FFC_BN_ACT(fea[5],fea[5])            
+
+        if 'DEEPRFT' in self.skipModule:
+            self.skipModule1 = FFT_ConvBlock(fea[0],fea[0])
+            self.skipModule2 = FFT_ConvBlock(fea[1],fea[1])
+            self.skipModule3 = FFT_ConvBlock(fea[2],fea[2])
+            self.skipModule4 = FFT_ConvBlock(fea[3],fea[3])
+            self.skipModule5 = FFT_ConvBlock(fea[4],fea[4])
+            self.skipModule6 = FFT_ConvBlock(fea[5],fea[5])
             
-        self.acm = acm
-        if acm:
-            self.acm1 = ACM(num_heads=fea[0]//2, num_features=fea[0], orthogonal_loss=False)
-            self.acm2 = ACM(num_heads=fea[1]//2, num_features=fea[1], orthogonal_loss=False)
-            self.acm3 = ACM(num_heads=fea[2]//2, num_features=fea[2], orthogonal_loss=False)
-            self.acm4 = ACM(num_heads=fea[3]//2, num_features=fea[3], orthogonal_loss=False)
-            self.acm5 = ACM(num_heads=fea[4]//2, num_features=fea[4], orthogonal_loss=False)
-            self.acm6 = ACM(num_heads=fea[5]//2, num_features=fea[5], orthogonal_loss=False)
+        if 'ACM' in self.skipModule:
+            group = 4
+            self.skipModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            self.skipModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            self.skipModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            self.skipModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+            self.skipModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            self.skipModule6 = ACM(num_heads=fea[5]//group, num_features=fea[5], orthogonal_loss=False)
             
-        self.ASPP = ASPP
-        spatial_dims = 1
-        if ASPP=='last':
-            self.ASPPblock6 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[5], conv_out_channels=fea[5]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
-        elif ASPP=='all':
-            self.ASPPblock1 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[0], conv_out_channels=fea[0]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
-            self.ASPPblock2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
-            self.ASPPblock3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
-            self.ASPPblock4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False) 
-            self.ASPPblock5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
-            self.ASPPblock6 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[5], conv_out_channels=fea[5]//4,
-                                                               norm_type=norm, acti_type='LEAKYRELU', bias=False)  
         self.temperature = temperature
             
     def forward(self,x):
@@ -401,50 +412,33 @@ class U2NET(nn.Module):
 
         #stage 1
         hx1 = self.stage1(hx)
-        hx1 = hx1 + self.ASPPblock1(hx1) if self.ASPP=='all' else hx1
-        hx1 = hx1 + self.nnblock1(hx1) if self.nnblock else hx1
-        hx1 = hx1 + self.FFCblock1(hx1) if self.FFC else hx1
-        hx1 = hx1 + self.acm1(hx1) if self.acm else hx1
+        # hx1 = hx1 + self.skipModule1(hx1)
+        hx1 = self.skipModule1(hx1)
         hx = self.pool12(hx1)
 
         #stage 2
         hx2 = self.stage2(hx)
-        hx2 = hx2 + self.ASPPblock2(hx2) if self.ASPP=='all' else hx2
-        hx2 = hx2 + self.nnblock2(hx2) if self.nnblock else hx2
-        hx2 = hx2 + self.FFCblock2(hx2) if self.FFC else hx2
-        hx2 = hx2 + self.acm2(hx2) if self.acm else hx2
+        hx2 = self.skipModule2(hx2)
         hx = self.pool23(hx2)
 
         #stage 3
         hx3 = self.stage3(hx)
-        hx3 = hx3 + self.ASPPblock3(hx3) if self.ASPP=='all' else hx3
-        hx3 = hx3 + self.nnblock3(hx3) if self.nnblock else hx3
-        hx3 = hx3 + self.FFCblock3(hx3) if self.FFC else hx3
-        hx3 = hx3 + self.acm3(hx3) if self.acm else hx3
+        hx3 = self.skipModule3(hx3)
         hx = self.pool34(hx3)
 
         #stage 4
         hx4 = self.stage4(hx)
-        hx4 = hx4 + self.ASPPblock4(hx4) if self.ASPP=='all' else hx4
-        hx4 = hx4 + self.nnblock4(hx4) if self.nnblock else hx4
-        hx4 = hx4 + self.FFCblock4(hx4) if self.FFC else hx4
-        hx4 = hx4 + self.acm4(hx4) if self.acm else hx4
+        hx4 = self.skipModule4(hx4)
         hx = self.pool45(hx4)
 
         #stage 5
         hx5 = self.stage5(hx)
-        hx5 = hx5 + self.ASPPblock5(hx5) if self.ASPP=='all' else hx5
-        hx5 = hx5 +self.nnblock5(hx5) if self.nnblock else hx5
-        hx5 = hx5 +self.FFCblock5(hx5) if self.FFC else hx5
-        hx5 = hx5 +self.acm5(hx5) if self.acm else hx5
+        hx5 = self.skipModule5(hx5)
         hx = self.pool56(hx5)
 
         #stage 6
         hx6 = self.stage6(hx)
-        hx6 = hx6 + self.ASPPblock6(hx6) if self.ASPP else hx6
-        hx6 = hx6 + self.nnblock6(hx6) if self.nnblock else hx6
-        hx6 = hx6 + self.FFCblock6(hx6) if self.FFC else hx6
-        hx6 = hx6 + self.acm6(hx6) if self.acm else hx6
+        hx6 = self.skipModule6(hx6)
         hx6up = _upsample_like(hx6,hx5)
         
         #-------------------- decoder --------------------

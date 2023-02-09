@@ -514,27 +514,6 @@ def bn2instance(module):
 #         raise ValueError
 #     return model
 
-
-# class REBNCONV(nn.Module):
-#     def __init__(self,in_ch=1,out_ch=1,dirate=1,dropout=0.1,norm='instance'):
-#         super(REBNCONV,self).__init__()
-
-#         self.conv_s1 = nn.Conv1d(in_ch,out_ch,3,padding=1*dirate,dilation=1*dirate)
-#         if norm=='instance':
-#             self.bn_s1 = nn.InstanceNorm1d(out_ch)
-#         elif norm=='batch':
-#             self.bn_s1 = nn.BatchNorm1d(out_ch)    
-#         self.relu_s1 = nn.LeakyReLU(0.1)
-#         self.dropout = nn.Dropout(dropout)
-
-#     def forward(self,x):
-
-#         hx = x
-#         xout = self.relu_s1(self.bn_s1(self.conv_s1(hx)))
-#         xout = self.dropout(xout)
-        
-#         return xout
-
 from typing import Optional, Sequence, Union
 
 import monai

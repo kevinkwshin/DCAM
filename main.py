@@ -1,8 +1,8 @@
 import os, sys, shutil
 os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
 os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
-import bagua_core; bagua_core.install_deps()
 
+# import bagua_core; bagua_core.install_deps()
 # export http_proxy=http://192.168.45.100:3128
 # export https_proxy=https://192.168.45.100:3128
 
@@ -43,7 +43,7 @@ config_defaults = dict(
     
     project = 'PVC_NET',  # this is cutoff line of path_logRoot
     
-    modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2',
+    modelName='U2NET', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'U2NET'
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
@@ -255,17 +255,17 @@ class PVC_NET(pl.LightningModule):
                             mtl=hyperparameters['mtl'],
                            )
             
-#         elif 'U2' in hyperparameters['modelName']:
-#             self.net = nets.U2NET(in_ch=hyperparameters['in_channels'],
-#                                   out_ch=hyperparameters['out_channels'],
-#                                   nnblock = hyperparameters['nnblock'],
-#                                   ASPP = hyperparameters['ASPP'],
-#                                   FFC = hyperparameters['FFC'],
-#                                   acm = hyperparameters['acm'],
-#                                   dropout = hyperparameters['dropout'],
-#                                   temperature=1,
-#                                   norm = hyperparameters['norm'],
-#                                  )
+        elif 'U2' in hyperparameters['modelName']:
+            self.net = nets.U2NET(in_ch=hyperparameters['inChannels'],
+                                  out_ch=hyperparameters['outChannels'],
+                                #   nnblock = hyperparameters['nnblock'],
+                                #   ASPP = hyperparameters['ASPP'],
+                                #   FFC = hyperparameters['FFC'],
+                                #   acm = hyperparameters['acm'],
+                                  dropout = hyperparameters['dropout'],
+                                  temperature=1,
+                                  norm = hyperparameters['norm'],
+                                 )
             
 #         elif 'unetr' in hyperparameters['modelName']:
 #             self.net= monai.networks.nets.UNETR(hyperparameters['in_channels'], 
