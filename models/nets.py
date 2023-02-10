@@ -529,302 +529,302 @@ from functools import partial
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
 from monai.networks.layers.factories import Act, Conv, Dropout, Norm, Pool
 
-class ResNetBottleneck(nn.Module):
-    expansion = 4
+# class ResNetBottleneck(nn.Module):
+#     expansion = 4
 
-    def __init__(
-        self,
-        in_planes: int,
-        planes: int,
-        spatial_dims: int = 3,
-        stride: int = 1,
-        downsample: Union[nn.Module, partial, None] = None,
-        # module="acm"
-        module="none"
-    ) -> None:
-        """
-        Args:
-            in_planes: number of input channels.
-            planes: number of output channels (taking expansion into account).
-            spatial_dims: number of spatial dimensions of the input image.
-            stride: stride to use for second conv layer.
-            downsample: which downsample layer to use.
-        """
+#     def __init__(
+#         self,
+#         in_planes: int,
+#         planes: int,
+#         spatial_dims: int = 3,
+#         stride: int = 1,
+#         downsample: Union[nn.Module, partial, None] = None,
+#         # module="acm"
+#         module="none"
+#     ) -> None:
+#         """
+#         Args:
+#             in_planes: number of input channels.
+#             planes: number of output channels (taking expansion into account).
+#             spatial_dims: number of spatial dimensions of the input image.
+#             stride: stride to use for second conv layer.
+#             downsample: which downsample layer to use.
+#         """
 
-        super().__init__()
+#         super().__init__()
 
-        conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-        # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-        norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
+#         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
+#         # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+#         norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
 
-        self.conv1 = conv_type(in_planes, planes, kernel_size=1, bias=False)
-        self.bn1 = norm_type(planes)
-        self.conv2 = conv_type(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = norm_type(planes)
-        self.conv3 = conv_type(planes, planes * self.expansion, kernel_size=1, bias=False)
-        self.bn3 = norm_type(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
+#         self.conv1 = conv_type(in_planes, planes, kernel_size=1, bias=False)
+#         self.bn1 = norm_type(planes)
+#         self.conv2 = conv_type(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+#         self.bn2 = norm_type(planes)
+#         self.conv3 = conv_type(planes, planes * self.expansion, kernel_size=1, bias=False)
+#         self.bn3 = norm_type(planes * self.expansion)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.downsample = downsample
+#         self.stride = stride
 
-        num_acm_groups = 32
-        orthogonal_loss= False
+#         num_acm_groups = 32
+#         orthogonal_loss= False
         
-        if module == "none":
-            self.module = None
-        elif module == 'acm':
-            self.module = nets.ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
-            self.module.init_parameters()
-        else:
-            raise ValueError("undefined module")
+#         if module == "none":
+#             self.module = None
+#         elif module == 'acm':
+#             self.module = nets.ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
+#             self.module.init_parameters()
+#         else:
+#             raise ValueError("undefined module")
 
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
         
-        if isinstance(x, tuple):
-            x, prev_dp = x
-        else:
-            prev_dp = None
+#         if isinstance(x, tuple):
+#             x, prev_dp = x
+#         else:
+#             prev_dp = None
 
-        residual = x
+#         residual = x
 
-        out: torch.Tensor = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+#         out: torch.Tensor = self.conv1(x)
+#         out = self.bn1(out)
+#         out = self.relu(out)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
+#         out = self.conv2(out)
+#         out = self.bn2(out)
+#         out = self.relu(out)
 
-        out = self.conv3(out)
-        out = self.bn3(out)
+#         out = self.conv3(out)
+#         out = self.bn3(out)
 
-        if self.downsample is not None:
-            residual = self.downsample(x)
+#         if self.downsample is not None:
+#             residual = self.downsample(x)
             
-        dp = None
-        if self.module is not None:
-            out = self.module(out)
-            if isinstance(out, tuple):
-                out, dp = out
-                if prev_dp is not None:
-                    dp = prev_dp + dp
+#         dp = None
+#         if self.module is not None:
+#             out = self.module(out)
+#             if isinstance(out, tuple):
+#                 out, dp = out
+#                 if prev_dp is not None:
+#                     dp = prev_dp + dp
 
-        out += residual
-        out = self.relu(out)
+#         out += residual
+#         out = self.relu(out)
 
-        if dp is None:
-            return out
-        else:
-            # diff loss
-            return out, dp
+#         if dp is None:
+#             return out
+#         else:
+#             # diff loss
+#             return out, dp
         
-class ResNet(nn.Module):
-    """
-    ResNet based on: `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`_
-    and `Can Spatiotemporal 3D CNNs Retrace the History of 2D CNNs and ImageNet? <https://arxiv.org/pdf/1711.09577.pdf>`_.
-    Adapted from `<https://github.com/kenshohara/3D-ResNets-PyTorch/tree/master/models>`_.
+# class ResNet(nn.Module):
+#     """
+#     ResNet based on: `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`_
+#     and `Can Spatiotemporal 3D CNNs Retrace the History of 2D CNNs and ImageNet? <https://arxiv.org/pdf/1711.09577.pdf>`_.
+#     Adapted from `<https://github.com/kenshohara/3D-ResNets-PyTorch/tree/master/models>`_.
 
-    Args:
-        block: which ResNet block to use, either Basic or Bottleneck.
-            ResNet block class or str.
-            for Basic: ResNetBlock or 'basic'
-            for Bottleneck: ResNetBottleneck or 'bottleneck'
-        layers: how many layers to use.
-        block_inplanes: determine the size of planes at each step. Also tunable with widen_factor.
-        spatial_dims: number of spatial dimensions of the input image.
-        n_input_channels: number of input channels for first convolutional layer.
-        conv1_t_size: size of first convolution layer, determines kernel and padding.
-        conv1_t_stride: stride of first convolution layer.
-        no_max_pool: bool argument to determine if to use maxpool layer.
-        shortcut_type: which downsample block to use. Options are 'A', 'B', default to 'B'.
-            - 'A': using `self._downsample_basic_block`.
-            - 'B': kernel_size 1 conv + norm.
-        widen_factor: widen output for each layer.
-        num_classes: number of output (classifications).
-        feed_forward: whether to add the FC layer for the output, default to `True`.
+#     Args:
+#         block: which ResNet block to use, either Basic or Bottleneck.
+#             ResNet block class or str.
+#             for Basic: ResNetBlock or 'basic'
+#             for Bottleneck: ResNetBottleneck or 'bottleneck'
+#         layers: how many layers to use.
+#         block_inplanes: determine the size of planes at each step. Also tunable with widen_factor.
+#         spatial_dims: number of spatial dimensions of the input image.
+#         n_input_channels: number of input channels for first convolutional layer.
+#         conv1_t_size: size of first convolution layer, determines kernel and padding.
+#         conv1_t_stride: stride of first convolution layer.
+#         no_max_pool: bool argument to determine if to use maxpool layer.
+#         shortcut_type: which downsample block to use. Options are 'A', 'B', default to 'B'.
+#             - 'A': using `self._downsample_basic_block`.
+#             - 'B': kernel_size 1 conv + norm.
+#         widen_factor: widen output for each layer.
+#         num_classes: number of output (classifications).
+#         feed_forward: whether to add the FC layer for the output, default to `True`.
 
-    """
+#     """
 
-    def __init__(
-        self,
-        block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
-        layers: List[int],
-        block_inplanes: List[int],
-        spatial_dims: int = 3,
-        n_input_channels: int = 3,
-        conv1_t_size: Union[Tuple[int], int] = 7,
-        conv1_t_stride: Union[Tuple[int], int] = 1,
-        no_max_pool: bool = False,
-        shortcut_type: str = "B",
-        widen_factor: float = 1.0,
-        num_classes: int = 400,
-        feed_forward: bool = True,
-        norm = 'instance'
-    ) -> None:
+#     def __init__(
+#         self,
+#         block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
+#         layers: List[int],
+#         block_inplanes: List[int],
+#         spatial_dims: int = 3,
+#         n_input_channels: int = 3,
+#         conv1_t_size: Union[Tuple[int], int] = 7,
+#         conv1_t_stride: Union[Tuple[int], int] = 1,
+#         no_max_pool: bool = False,
+#         shortcut_type: str = "B",
+#         widen_factor: float = 1.0,
+#         num_classes: int = 400,
+#         feed_forward: bool = True,
+#         norm = 'instance'
+#     ) -> None:
 
-        super().__init__()
+#         super().__init__()
 
-        if isinstance(block, str):
-            if block == "basic":
-                block = ResNetBlock
-            elif block == "bottleneck":
-                block = ResNetBottleneck
-            else:
-                raise ValueError("Unknown block '%s', use basic or bottleneck" % block)
+#         if isinstance(block, str):
+#             if block == "basic":
+#                 block = ResNetBlock
+#             elif block == "bottleneck":
+#                 block = ResNetBottleneck
+#             else:
+#                 raise ValueError("Unknown block '%s', use basic or bottleneck" % block)
 
-        conv_type: Type[Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]] = Conv[Conv.CONV, spatial_dims]
-        if norm == 'batch':
-            norm_type: Type[Union[nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]] = Norm[Norm.BATCH, spatial_dims]
-        else:
-            norm_type: Type[Union[nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]] = Norm[Norm.INSTANCE, spatial_dims]
-        pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
-        avgp_type: Type[Union[nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d]] = Pool[
-            Pool.ADAPTIVEAVG, spatial_dims
-        ]
+#         conv_type: Type[Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]] = Conv[Conv.CONV, spatial_dims]
+#         if norm == 'batch':
+#             norm_type: Type[Union[nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]] = Norm[Norm.BATCH, spatial_dims]
+#         else:
+#             norm_type: Type[Union[nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]] = Norm[Norm.INSTANCE, spatial_dims]
+#         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
+#         avgp_type: Type[Union[nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d]] = Pool[
+#             Pool.ADAPTIVEAVG, spatial_dims
+#         ]
 
-        block_avgpool = get_avgpool()
-        block_inplanes = [int(x * widen_factor) for x in block_inplanes]
+#         block_avgpool = get_avgpool()
+#         block_inplanes = [int(x * widen_factor) for x in block_inplanes]
 
-        self.in_planes = block_inplanes[0]
-        self.no_max_pool = no_max_pool
+#         self.in_planes = block_inplanes[0]
+#         self.no_max_pool = no_max_pool
 
-        conv1_kernel_size = ensure_tuple_rep(conv1_t_size, spatial_dims)
-        conv1_stride = ensure_tuple_rep(conv1_t_stride, spatial_dims)
+#         conv1_kernel_size = ensure_tuple_rep(conv1_t_size, spatial_dims)
+#         conv1_stride = ensure_tuple_rep(conv1_t_stride, spatial_dims)
 
-        self.conv1 = conv_type(
-            n_input_channels,
-            self.in_planes,
-            kernel_size=conv1_kernel_size,  # type: ignore
-            stride=conv1_stride,  # type: ignore
-            padding=tuple(k // 2 for k in conv1_kernel_size),  # type: ignore
-            bias=False,
-        )
-        self.bn1 = norm_type(self.in_planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = pool_type(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, block_inplanes[0], layers[0], spatial_dims, shortcut_type)
-        self.layer2 = self._make_layer(block, block_inplanes[1], layers[1], spatial_dims, shortcut_type, stride=2)
-        self.layer3 = self._make_layer(block, block_inplanes[2], layers[2], spatial_dims, shortcut_type, stride=2)
-        self.layer4 = self._make_layer(block, block_inplanes[3], layers[3], spatial_dims, shortcut_type, stride=2)
-        self.avgpool = avgp_type(block_avgpool[spatial_dims])
-        self.fc = nn.Linear(block_inplanes[3] * block.expansion, num_classes) if feed_forward else None
+#         self.conv1 = conv_type(
+#             n_input_channels,
+#             self.in_planes,
+#             kernel_size=conv1_kernel_size,  # type: ignore
+#             stride=conv1_stride,  # type: ignore
+#             padding=tuple(k // 2 for k in conv1_kernel_size),  # type: ignore
+#             bias=False,
+#         )
+#         self.bn1 = norm_type(self.in_planes)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.maxpool = pool_type(kernel_size=3, stride=2, padding=1)
+#         self.layer1 = self._make_layer(block, block_inplanes[0], layers[0], spatial_dims, shortcut_type)
+#         self.layer2 = self._make_layer(block, block_inplanes[1], layers[1], spatial_dims, shortcut_type, stride=2)
+#         self.layer3 = self._make_layer(block, block_inplanes[2], layers[2], spatial_dims, shortcut_type, stride=2)
+#         self.layer4 = self._make_layer(block, block_inplanes[3], layers[3], spatial_dims, shortcut_type, stride=2)
+#         self.avgpool = avgp_type(block_avgpool[spatial_dims])
+#         self.fc = nn.Linear(block_inplanes[3] * block.expansion, num_classes) if feed_forward else None
 
-        for m in self.modules():
-            if isinstance(m, conv_type):
-                nn.init.kaiming_normal_(torch.as_tensor(m.weight), mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, norm_type):
-                nn.init.constant_(torch.as_tensor(m.weight), 1)
-                nn.init.constant_(torch.as_tensor(m.bias), 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.constant_(torch.as_tensor(m.bias), 0)
+#         for m in self.modules():
+#             if isinstance(m, conv_type):
+#                 nn.init.kaiming_normal_(torch.as_tensor(m.weight), mode="fan_out", nonlinearity="relu")
+#             elif isinstance(m, norm_type):
+#                 nn.init.constant_(torch.as_tensor(m.weight), 1)
+#                 nn.init.constant_(torch.as_tensor(m.bias), 0)
+#             elif isinstance(m, nn.Linear):
+#                 nn.init.constant_(torch.as_tensor(m.bias), 0)
 
-    def _downsample_basic_block(self, x: torch.Tensor, planes: int, stride: int, spatial_dims: int = 3) -> torch.Tensor:
-        out: torch.Tensor = get_pool_layer(("avg", {"kernel_size": 1, "stride": stride}), spatial_dims=spatial_dims)(x)
-        zero_pads = torch.zeros(out.size(0), planes - out.size(1), *out.shape[2:], dtype=out.dtype, device=out.device)
-        out = torch.cat([out.data, zero_pads], dim=1)
-        return out
+#     def _downsample_basic_block(self, x: torch.Tensor, planes: int, stride: int, spatial_dims: int = 3) -> torch.Tensor:
+#         out: torch.Tensor = get_pool_layer(("avg", {"kernel_size": 1, "stride": stride}), spatial_dims=spatial_dims)(x)
+#         zero_pads = torch.zeros(out.size(0), planes - out.size(1), *out.shape[2:], dtype=out.dtype, device=out.device)
+#         out = torch.cat([out.data, zero_pads], dim=1)
+#         return out
 
-    def _make_layer(
-        self,
-        block: Type[Union[ResNetBlock, ResNetBottleneck]],
-        planes: int,
-        blocks: int,
-        spatial_dims: int,
-        shortcut_type: str,
-        stride: int = 1,
-    ) -> nn.Sequential:
+#     def _make_layer(
+#         self,
+#         block: Type[Union[ResNetBlock, ResNetBottleneck]],
+#         planes: int,
+#         blocks: int,
+#         spatial_dims: int,
+#         shortcut_type: str,
+#         stride: int = 1,
+#     ) -> nn.Sequential:
 
-        conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-        norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+#         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
+#         norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
 
-        downsample: Union[nn.Module, partial, None] = None
-        if stride != 1 or self.in_planes != planes * block.expansion:
-            if look_up_option(shortcut_type, {"A", "B"}) == "A":
-                downsample = partial(
-                    self._downsample_basic_block,
-                    planes=planes * block.expansion,
-                    stride=stride,
-                    spatial_dims=spatial_dims,
-                )
-            else:
-                downsample = nn.Sequential(
-                    conv_type(self.in_planes, planes * block.expansion, kernel_size=1, stride=stride),
-                    norm_type(planes * block.expansion),
-                )
+#         downsample: Union[nn.Module, partial, None] = None
+#         if stride != 1 or self.in_planes != planes * block.expansion:
+#             if look_up_option(shortcut_type, {"A", "B"}) == "A":
+#                 downsample = partial(
+#                     self._downsample_basic_block,
+#                     planes=planes * block.expansion,
+#                     stride=stride,
+#                     spatial_dims=spatial_dims,
+#                 )
+#             else:
+#                 downsample = nn.Sequential(
+#                     conv_type(self.in_planes, planes * block.expansion, kernel_size=1, stride=stride),
+#                     norm_type(planes * block.expansion),
+#                 )
 
-        layers = [
-            block(
-                in_planes=self.in_planes, planes=planes, spatial_dims=spatial_dims, stride=stride, downsample=downsample
-            )
-        ]
+#         layers = [
+#             block(
+#                 in_planes=self.in_planes, planes=planes, spatial_dims=spatial_dims, stride=stride, downsample=downsample
+#             )
+#         ]
 
-        self.in_planes = planes * block.expansion
-        for _i in range(1, blocks):
-            layers.append(block(self.in_planes, planes, spatial_dims=spatial_dims))
+#         self.in_planes = planes * block.expansion
+#         for _i in range(1, blocks):
+#             layers.append(block(self.in_planes, planes, spatial_dims=spatial_dims))
 
-        return nn.Sequential(*layers)
+#         return nn.Sequential(*layers)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        if not self.no_max_pool:
-            x = self.maxpool(x)
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         x = self.conv1(x)
+#         x = self.bn1(x)
+#         x = self.relu(x)
+#         if not self.no_max_pool:
+#             x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+#         x = self.layer1(x)
+#         x = self.layer2(x)
+#         x = self.layer3(x)
+#         x = self.layer4(x)
 
-        x = self.avgpool(x)
+#         x = self.avgpool(x)
 
-        x = x.view(x.size(0), -1)
-        if self.fc is not None:
-            x = self.fc(x)
+#         x = x.view(x.size(0), -1)
+#         if self.fc is not None:
+#             x = self.fc(x)
 
-        return x
+#         return x
     
-class ResNetFeature(ResNet):
-    def __init__(
-            self,
-            block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
-            layers: List[int],
-            block_inplanes: List[int],
-            spatial_dims: int = 3,
-            n_input_channels: int = 3,
-            conv1_t_size: Union[Tuple[int], int] = 7,
-            conv1_t_stride: Union[Tuple[int], int] = 1,
-            no_max_pool: bool = False,
-            shortcut_type: str = "B",
-            widen_factor: float = 1.0,
-            num_classes: int = 400,
-            feed_forward: bool = True,
-            n_classes: Optional[int] = None,
-            norm='instance'
-        ) -> None:
-        super().__init__(block,layers,block_inplanes,spatial_dims,n_input_channels,conv1_t_size,conv1_t_stride,no_max_pool)
-        self.spatial_dims= spatial_dims
+# class ResNetFeature(ResNet):
+#     def __init__(
+#             self,
+#             block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
+#             layers: List[int],
+#             block_inplanes: List[int],
+#             spatial_dims: int = 3,
+#             n_input_channels: int = 3,
+#             conv1_t_size: Union[Tuple[int], int] = 7,
+#             conv1_t_stride: Union[Tuple[int], int] = 1,
+#             no_max_pool: bool = False,
+#             shortcut_type: str = "B",
+#             widen_factor: float = 1.0,
+#             num_classes: int = 400,
+#             feed_forward: bool = True,
+#             n_classes: Optional[int] = None,
+#             norm='instance'
+#         ) -> None:
+#         super().__init__(block,layers,block_inplanes,spatial_dims,n_input_channels,conv1_t_size,conv1_t_stride,no_max_pool)
+#         self.spatial_dims= spatial_dims
     
-        pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
-        self.mpool1 = pool_type(kernel_size=3, stride=2, ceil_mode=True)
+#         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
+#         self.mpool1 = pool_type(kernel_size=3, stride=2, ceil_mode=True)
         
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1 = self.conv1(x)
-        x1 = self.bn1(x1)
-        x1 = self.relu(x1)
-        if not self.no_max_pool:
-            x1 = self.maxpool(x1)
-        x2 = self.layer1(x1)        
-        x2 = self.mpool1(x2)
-        x3 = self.layer2(x2)
-        x4 = self.layer3(x3)
-        x5 = self.layer4(x4)
-        return x1, x2, x3, x4, x5
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         x1 = self.conv1(x)
+#         x1 = self.bn1(x1)
+#         x1 = self.relu(x1)
+#         if not self.no_max_pool:
+#             x1 = self.maxpool(x1)
+#         x2 = self.layer1(x1)        
+#         x2 = self.mpool1(x2)
+#         x3 = self.layer2(x2)
+#         x4 = self.layer3(x3)
+#         x5 = self.layer4(x4)
+#         return x1, x2, x3, x4, x5
 
-def _upsample_like(src,tar):
-    src = F.upsample(src,size=tar.shape[2:], mode='linear')
-    return src
+# def _upsample_like(src,tar):
+#     src = F.upsample(src,size=tar.shape[2:], mode='linear')
+#     return src
 
 # Copyright (c) MONAI Consortium
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -857,7 +857,6 @@ from monai.networks.nets.basic_unet import TwoConv, Down, UpCat, UpSample, Union
 from monai.networks.layers.factories import Conv, Pool
 from monai.utils import deprecated_arg, ensure_tuple_rep
 
-
 from monai.networks.nets import ResNet, DenseNet, SENet
 from monai.networks.nets.resnet import ResNetBlock#, ResNetBottleneck
 from monai.networks.nets.senet import SEBottleneck, SEResNetBottleneck
@@ -875,6 +874,96 @@ def get_avgpool():
     return [0, 1, (1, 1), (1, 1, 1)]
 
 
+class ResNetBlock(nn.Module):
+    expansion = 1
+
+    def __init__(
+        self,
+        in_planes: int,
+        planes: int,
+        spatial_dims: int = 3,
+        stride: int = 1,
+        downsample: Union[nn.Module, partial, None] = None,
+        module="acm"
+        # module="none"
+    ) -> None:
+        """
+        Args:
+            in_planes: number of input channels.
+            planes: number of output channels.
+            spatial_dims: number of spatial dimensions of the input image.
+            stride: stride to use for first conv layer.
+            downsample: which downsample layer to use.
+        """
+        super().__init__()
+
+        conv_type: Callable = Conv[Conv.CONV, spatial_dims]
+        # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+        norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
+
+        self.conv1 = conv_type(in_planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.bn1 = norm_type(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv_type(planes, planes, kernel_size=3, padding=1, bias=False)
+        self.bn2 = norm_type(planes)
+        self.downsample = downsample
+        self.stride = stride
+        
+        spatial_dims = 1
+        num_acm_groups = 8
+        orthogonal_loss= False
+        # orthogonal_loss= True
+
+        if module == "none":
+            self.module = None
+        elif module == 'se':
+            self.module = monai.networks.blocks.ChannelSELayer(spatial_dims,plane)
+        elif module =='nlnn':
+            norm = 'instance'
+            self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        elif module =='deeprft':
+            self.module = FFT_ConvBlock(planes,planes)
+        elif module =='cbam':
+            self.module = CBAM(gate_channels=planes, reduction_ratio=16, pool_types=['avg', 'max'])            
+        elif module == 'acm':
+            self.module = ACM(num_heads=num_acm_groups, num_features=planes, orthogonal_loss=orthogonal_loss)
+            self.module.init_parameters()
+        else:
+            raise ValueError("undefined module")
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        if isinstance(x, tuple):
+            x, prev_dp = x
+        else:
+            prev_dp = None
+
+        residual = x
+
+        out: torch.Tensor = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        dp = None
+        if self.module is not None:
+            out = self.module(out)
+            if isinstance(out, tuple):
+                out, dp = out
+                if prev_dp is not None:
+                    dp = prev_dp + dp
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
 class ResNetBottleneck(nn.Module):
     expansion = 4
 
@@ -885,8 +974,8 @@ class ResNetBottleneck(nn.Module):
         spatial_dims: int = 3,
         stride: int = 1,
         downsample: Union[nn.Module, partial, None] = None,
-        # module="acm"
-        module="none"
+        module="acm"
+        # module="none"
     ) -> None:
         """
         Args:
@@ -913,13 +1002,14 @@ class ResNetBottleneck(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-        num_acm_groups = 32
+        num_acm_groups = 8
         orthogonal_loss= False
-        
+        orthogonal_loss= True
+
         if module == "none":
             self.module = None
         elif module == 'acm':
-            self.module = nets.ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
+            self.module = ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
             self.module.init_parameters()
         else:
             raise ValueError("undefined module")
@@ -964,6 +1054,8 @@ class ResNetBottleneck(nn.Module):
         else:
             # diff loss
             return out, dp
+
+# ResNet = monai.networks.nets.ResNet
 
 class ResNetFeature(ResNet):
     def __init__(
@@ -1068,7 +1160,6 @@ def resnet50(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> 
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     return _resnet("resnet50", ResNetBottleneck, [3, 4, 6, 3], get_inplanes(), pretrained, progress, **kwargs)
-
 
 def bn2instance(module):
     module_output = module
@@ -1257,7 +1348,7 @@ class MBConvBlock(nn.Module):
             elif se_module =='acm':
                 num_acm_groups = 4
                 orthogonal_loss= False
-                self.se = nets.ACM(num_heads=num_acm_groups, num_features=oup, orthogonal_loss=orthogonal_loss)
+                self.se = ACM(num_heads=num_acm_groups, num_features=oup, orthogonal_loss=orthogonal_loss)
             elif se_module =='nlnn':
                 self.se = NLBlockND(in_channels=oup, mode='embedded', dimension=spatial_dims, norm_layer=norm)
             elif se_module =='deeprft':
@@ -1668,7 +1759,7 @@ class EfficientNetBN(EfficientNet):
             _load_state_dict(self, model_name, progress, adv_prop)
 
 
-
+# EfficientNet = monai.networks.nets.EfficientNet
 class EfficientNetBNFeatures(EfficientNet):
     def __init__(
         self,
@@ -2221,8 +2312,6 @@ class UpCat(nn.Module):
 #             ########################################################## preset init_ch
 #             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
 #             self.encoder = ResNetFeature(n_input_channels=init_ch, block=ResNetBottleneck, layers= [3, 4, 6, 3], block_inplanes= [64, 128, 256, 512], spatial_dims=1, conv1_t_size=7, conv1_t_stride=2, no_max_pool= True)
-#             if norm=='instance':
-#                 self.encoder = bn2instance(self.encoder)
 #         else:
 #             print('please check modelName')
         
@@ -2445,8 +2534,8 @@ class UNet(nn.Module):
         dropout: Union[float, tuple] = 0, # (0.1, {"inplace": True}),
         upsample: str = "deconv", # [deconv, nontrainable, pixelshuffle]
         supervision = "NONE", #[None,'old','new']
-        skipModule= "NONE",
-        skipASPP="NONE", # no more skipASPP
+        encModule="NONE",
+        decModule="NONE",
         segheadModule ="NONE",
         se_module= 'se',
         mtl="NONE"
@@ -2468,7 +2557,7 @@ class UNet(nn.Module):
             upsample: upsampling mode, available options are ``"deconv"``, ``"pixelshuffle"``, ``"nontrainable"``.
             supervision : 'TYPE1,'TYPE2,'NONE'
             se_module : 'se', 'acm', 'ffc', 'deeprft', 'nlnn'
-            skipModule : '[Module]_[BOTTOM#]'-->'FFC','DEEPRFT','ACM8','NONE','ACM2','ACM4','NLNN','SE'
+            encModule : '[Module]_[BOTTOM#]'-->'FFC','DEEPRFT','ACM8','NONE','ACM2','ACM4','NLNN','SE'
                                              -->'BOTTOM5','BOTTOM4','BOTTOM3','BOTTOM2','BOTTOM1'
             
         <example>
@@ -2497,17 +2586,19 @@ class UNet(nn.Module):
                 self.encoder = resnet34(spatial_dims=1, n_input_channels=1)
             elif modelName == 'resnet50':
                 self.encoder = resnet50(spatial_dims=1, n_input_channels=1)
-            x_test = torch.rand(2, 1, 2048)
+
+            x_test = torch.rand(2, 1, 1280)
             yhat_test = self.encoder(x_test)
             init_ch = yhat_test[0].shape[1]
             ########################################################## preset init_ch
             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
             if modelName == 'resnet18':
-                self.encoder = nets.resnet18(spatial_dims=1, n_input_channels=init_ch)
+                self.encoder = resnet18(spatial_dims=1, n_input_channels=init_ch)
             elif modelName == 'resnet34':
-                self.encoder = nets.resnet34(spatial_dims=1, n_input_channels=init_ch)
+                self.encoder = resnet34(spatial_dims=1, n_input_channels=init_ch)
             elif modelName == 'resnet50':
-                self.encoder = nets.resnet50(spatial_dims=1, n_input_channels=init_ch)
+                self.encoder = resnet50(spatial_dims=1, n_input_channels=init_ch)
+            self.encoder = bn2instance(self.encoder)
         else:
             print('please check modelName')
         
@@ -2517,114 +2608,82 @@ class UNet(nn.Module):
         print(fea)
         
         # skip modules
-        self.skipModule = skipModule
-        self.skip_1 = None
-        self.skip_2 = None
-        self.skip_3 = None
-        self.skip_4 = None
-        self.skip_5 = None
-        print(f"skipModule:{skipModule}")
-        if skipModule=="NONE":
-            pass
-        elif 'ACM' in skipModule:
-            group = int(skipModule.split('ACM')[-1][0])
-            self.ACMLambda = float(skipModule.split('_')[1])
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule} group {group} ACMLambda {self.ACMLambda}")
+        self.encModule = encModule
+        self.encModule1 = nn.Identity()
+        self.encModule2 = nn.Identity()
+        self.encModule3 = nn.Identity()
+        self.encModule4 = nn.Identity()
+        self.encModule5 = nn.Identity()
+        print(f"U-Net encModule is {encModule}")
+
+        if 'ACM' in encModule:
+            group = 4
+            self.ACMLambda = float(encModule.split('_')[-1])
+            print(f"encModule: {encModule} group {group} ACMLambda {self.ACMLambda}")
             if self.ACMLambda==0:
-                self.skip_1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False) if l>=5 else nn.Identity()
-                self.skip_2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False) if l>=4 else nn.Identity()
-                self.skip_3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False) if l>=3 else nn.Identity()
-                self.skip_4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False) if l>=2 else nn.Identity()
-                self.skip_5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False) if l>=1 else nn.Identity()
-            else:
-                self.skip_1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True) if l>=5 else nn.Identity()
-                self.skip_2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True) if l>=4 else nn.Identity()
-                self.skip_3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True) if l>=3 else nn.Identity()
-                self.skip_4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True) if l>=2 else nn.Identity()
-                self.skip_5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True) if l>=1 else nn.Identity()
-        elif 'NLNN' in skipModule:
+                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)# if l>=5 else nn.Identity()
+                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)# if l>=4 else nn.Identity()
+                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)# if l>=3 else nn.Identity()
+                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)# if l>=2 else nn.Identity()
+                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)# if l>=1 else nn.Identity()
+            # else:
+            #     self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True)# if l>=5 else nn.Identity()
+            #     self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True)# if l>=4 else nn.Identity()
+            #     self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True)# if l>=3 else nn.Identity()
+            #     self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True)# if l>=2 else nn.Identity()
+            #     self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True)# if l>=1 else nn.Identity()
+        elif 'NLNN' in encModule:
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule} {l}")
-            self.skip_1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=5 else nn.Identity()
-            self.skip_2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=4 else nn.Identity()
-            self.skip_3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=3 else nn.Identity()
-            self.skip_4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=2 else nn.Identity()
-            self.skip_5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm) if l>=1 else nn.Identity()
-        elif 'FFC' in skipModule:
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule}")
-            self.skip_1 = FFC_BN_ACT(fea[0],fea[0]) if l>=5 else nn.Identity()
-            self.skip_2 = FFC_BN_ACT(fea[1],fea[1]) if l>=4 else nn.Identity()
-            self.skip_3 = FFC_BN_ACT(fea[2],fea[2]) if l>=3 else nn.Identity()
-            self.skip_4 = FFC_BN_ACT(fea[3],fea[3]) if l>=2 else nn.Identity()
-            self.skip_5 = FFC_BN_ACT(fea[4],fea[4]) if l>=1 else nn.Identity()
-        elif 'DEEPRFT' in skipModule:
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule}")
-            self.skip_1 = FFT_ConvBlock(fea[0],fea[0]) if l>=5 else nn.Identity()
-            self.skip_2 = FFT_ConvBlock(fea[1],fea[1]) if l>=4 else nn.Identity()
-            self.skip_3 = FFT_ConvBlock(fea[2],fea[2]) if l>=3 else nn.Identity()
-            self.skip_4 = FFT_ConvBlock(fea[3],fea[3]) if l>=2 else nn.Identity()
-            self.skip_5 = FFT_ConvBlock(fea[4],fea[4]) if l>=1 else nn.Identity()
-        elif 'SE' in skipModule:
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule}")
-            self.skip_1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) if l>=5 else nn.Identity()
-            self.skip_2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1]) if l>=4 else nn.Identity()
-            self.skip_3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2]) if l>=3 else nn.Identity()
-            self.skip_4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3]) if l>=2 else nn.Identity()
-            self.skip_5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4]) if l>=1 else nn.Identity()
-        elif 'CBAM' in skipModule:
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule}")
-            self.skip_1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max']) if l>=5 else nn.Identity()
-            self.skip_2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max']) if l>=4 else nn.Identity()
-            self.skip_3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max']) if l>=3 else nn.Identity()
-            self.skip_4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max']) if l>=2 else nn.Identity()
-            self.skip_5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max']) if l>=1 else nn.Identity()
-        elif 'MHA' in skipModule:
-            l = int(skipModule.split('BOTTOM')[-1])
-            # print(f"skipModule: {skipModule}")
-            self.skip_1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) if l>=5 else nn.Identity()
-            self.skip_2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01) if l>=4 else nn.Identity()
-            self.skip_3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01) if l>=3 else nn.Identity()
-            self.skip_4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01) if l>=2 else nn.Identity()
-            self.skip_5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01) if l>=1 else nn.Identity()
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule} {l}")
+            self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=5 else nn.Identity()
+            self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=4 else nn.Identity()
+            self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=3 else nn.Identity()
+            self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=2 else nn.Identity()
+            self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=1 else nn.Identity()
+        elif 'FFC' in encModule:
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule}")
+            self.encModule1 = FFC_BN_ACT(fea[0],fea[0])# if l>=5 else nn.Identity()
+            self.encModule2 = FFC_BN_ACT(fea[1],fea[1])# if l>=4 else nn.Identity()
+            self.encModule3 = FFC_BN_ACT(fea[2],fea[2])# if l>=3 else nn.Identity()
+            self.encModule4 = FFC_BN_ACT(fea[3],fea[3])# if l>=2 else nn.Identity()
+            self.encModule5 = FFC_BN_ACT(fea[4],fea[4])# if l>=1 else nn.Identity()
+        elif 'DEEPRFT' in encModule:
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule}")
+            self.encModule1 = FFT_ConvBlock(fea[0],fea[0])# if l>=5 else nn.Identity()
+            self.encModule2 = FFT_ConvBlock(fea[1],fea[1])# if l>=4 else nn.Identity()
+            self.encModule3 = FFT_ConvBlock(fea[2],fea[2])# if l>=3 else nn.Identity()
+            self.encModule4 = FFT_ConvBlock(fea[3],fea[3])# if l>=2 else nn.Identity()
+            self.encModule5 = FFT_ConvBlock(fea[4],fea[4])# if l>=1 else nn.Identity()
+        elif 'SE' in encModule:
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule}")
+            self.encModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0])# if l>=5 else nn.Identity()
+            self.encModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])# if l>=4 else nn.Identity()
+            self.encModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])# if l>=3 else nn.Identity()
+            self.encModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])# if l>=2 else nn.Identity()
+            self.encModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])# if l>=1 else nn.Identity()
+        elif 'CBAM' in encModule:
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule}")
+            self.encModule1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=5 else nn.Identity()
+            self.encModule2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=4 else nn.Identity()
+            self.encModule3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=3 else nn.Identity()
+            self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=2 else nn.Identity()
+            self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=1 else nn.Identity()
+        elif 'MHA' in encModule:
+            # l = int(encModule.split('BOTTOM')[-1])
+            # print(f"encModule: {encModule}")
+            self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)# if l>=5 else nn.Identity()
+            self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)# if l>=4 else nn.Identity()
+            self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)# if l>=3 else nn.Identity()
+            self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)# if l>=2 else nn.Identity()
+            self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)# if l>=1 else nn.Identity()
             
-        # self.skipASPP=skipASPP
-        # self.ASPP_1 = nn.Identity()
-        # self.ASPP_2 = nn.Identity()
-        # self.ASPP_3 = nn.Identity()
-        # self.ASPP_4 = nn.Identity()
-        # self.ASPP_5 = nn.Identity()
-        # print(f"skipASPP: {self.skipASPP}")
-        # if self.skipASPP=='NONE':
-        #     pass
-        # elif self.skipASPP=='BOTTOM1':
-        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        # elif self.skipASPP=='BOTTOM2':
-        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        # elif self.skipASPP=='BOTTOM3':
-        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        # elif self.skipASPP=='BOTTOM4':
-        #     self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        # elif self.skipASPP=='BOTTOM5':
-        #     self.ASPP_1 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[0], conv_out_channels=fea[0]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_2 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[1], conv_out_channels=fea[1]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_3 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[2], conv_out_channels=fea[2]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_4 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[3], conv_out_channels=fea[3]//4, norm_type=norm, acti_type=act, bias=bias)            
-        #     self.ASPP_5 = monai.networks.blocks.SimpleASPP(spatial_dims=spatial_dims, in_channels=fea[4], conv_out_channels=fea[4]//4, norm_type=norm, acti_type=act, bias=bias)
-        
         # multiTaskCLS
         self.mtl = None
         if mtl == "CLS":
@@ -2640,6 +2699,58 @@ class UNet(nn.Module):
         self.upcat_2 = UpCat(spatial_dims, fea[2], fea[1], fea[1], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_1 = UpCat(spatial_dims, fea[1], fea[0], fea[0], act, norm, bias, dropout, upsample, interp_mode='linear')
         self.upcat_0 = UpCat(spatial_dims, fea[0], fea[0], fea[0], act, norm, bias, dropout, upsample, interp_mode='linear', halves=False)
+
+        self.decModule =  decModule
+        print('U-NET decModule is', decModule)
+        self.decModule1 = nn.Identity()
+        self.decModule2 = nn.Identity()
+        self.decModule3 = nn.Identity()
+        self.decModule4 = nn.Identity()
+
+        if 'SE' in self.decModule:
+            self.decModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
+            self.decModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
+            self.decModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
+            self.decModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])   
+
+        elif 'NN' in self.decModule:
+            self.decModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)               
+
+        elif 'FFC' in self.decModule:
+            self.decModule1 = FFC_BN_ACT(fea[0],fea[0])
+            self.decModule2 = FFC_BN_ACT(fea[1],fea[1])
+            self.decModule3 = FFC_BN_ACT(fea[2],fea[2])
+            self.decModule4 = FFC_BN_ACT(fea[3],fea[3])
+
+        elif 'DEEPRFT' in self.decModule:
+            self.decModule1 = FFT_ConvBlock(fea[0],fea[0])
+            self.decModule2 = FFT_ConvBlock(fea[1],fea[1])
+            self.decModule3 = FFT_ConvBlock(fea[2],fea[2])
+            self.decModule4 = FFT_ConvBlock(fea[3],fea[3])
+            
+        elif 'ACM' in self.decModule:
+            # group = 4
+            # self.decModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            # self.decModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            # self.decModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            # self.decModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+            # self.decModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            # self.decModule6 = ACM(num_heads=fea[5]//group, num_features=fea[5], orthogonal_loss=False)
+            group = 4
+            self.decModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            self.decModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            self.decModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            self.decModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+
+        elif 'MHA' in self.decModule:
+            featureLength = 1280
+            self.decModule1 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01) 
+            self.decModule2 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+            self.decModule3 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.decModule4 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
 
         self.supervision = supervision
         if supervision == 'NONE':
@@ -2657,6 +2768,7 @@ class UNet(nn.Module):
             
         self.segheadModule = segheadModule
         print(f"segheadModule: {segheadModule}")
+
         if segheadModule == "NONE":
             self.segheadModule = nn.Identity()
 
@@ -2685,6 +2797,7 @@ class UNet(nn.Module):
             self.segheadModule = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
         elif 'CBAM' in segheadModule:
             self.segheadModule = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
+
         self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
                                     
         self.apply(self._init_weights)
@@ -2707,26 +2820,26 @@ class UNet(nn.Module):
         dp = False
         dp1 = dp2 = dp3 = dp4 = dp5 = 0.
         
-        if self.skipModule=="NONE":
+        if self.encModule=="NONE":
             pass
-        elif "MHA" in self.skipModule:
-            x1,_ = self.skip_1(x1,x1,x1)
-            x2,_ = self.skip_2(x2,x2,x2)
-            x3,_ = self.skip_3(x3,x3,x3)
-            x4,_ = self.skip_4(x4,x4,x4)
-            x5,_ = self.skip_5(x5,x5,x5)
+        elif "MHA" in self.encModule:
+            x1,_ = self.encModule1(x1,x1,x1)
+            x2,_ = self.encModule2(x2,x2,x2)
+            x3,_ = self.encModule3(x3,x3,x3)
+            x4,_ = self.encModule4(x4,x4,x4)
+            x5,_ = self.encModule5(x5,x5,x5)
         else:
-            x1 = self.skip_1(x1)
-            x2 = self.skip_2(x2)
-            x3 = self.skip_3(x3)
-            x4 = self.skip_4(x4)
-            x5 = self.skip_5(x5)
+            x1 = self.encModule1(x1)
+            x2 = self.encModule2(x2)
+            x3 = self.encModule3(x3)
+            x4 = self.encModule4(x4)
+            x5 = self.encModule5(x5)
         
-#             x1 = x1 + self.skip_1(x1)
-#             x2 = x2 + self.skip_2(x2)
-#             x3 = x3 + self.skip_3(x3)
-#             x4 = x4 + self.skip_4(x4)
-#             x5 = x5 + self.skip_5(x5)
+#             x1 = x1 + self.encModule1(x1)
+#             x2 = x2 + self.encModule2(x2)
+#             x3 = x3 + self.encModule3(x3)
+#             x4 = x4 + self.encModule4(x4)
+#             x5 = x5 + self.encModule5(x5)
             
             if isinstance(x1,tuple) or isinstance(x1,list):
                 x1, dp1 = x1
@@ -2751,9 +2864,13 @@ class UNet(nn.Module):
             out_cls = self.mtl(x5)
   
         u4 = self.upcat_4(x5, x4)
+        u4 = self.decModule4(u4)
         u3 = self.upcat_3(u4, x3)
+        u3 = self.decModule3(u3)
         u2 = self.upcat_2(u3, x2)
+        u2 = self.decModule2(u2)
         u1 = self.upcat_1(u2, x1)
+        u1 = self.decModule1(u1)
         u0 = self.upcat_0(u1, x0)
         # print(u0.shape, u1.shape, u2.shape, u3.shape, u4.shape)
         

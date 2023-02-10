@@ -20,16 +20,13 @@ from data import *
 from losses import *
 import models.nets as nets
 
-run_command('nvcc -V')
-run_command('nvidia-smi')
+# run_command('nvcc -V')
+# run_command('nvidia-smi')
 # run_command('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 device = get_device()
-
 NUM_WORKERS = os.cpu_count()
 print("Number of workers:", NUM_WORKERS)
-# print('multiprocessing.cpu_count()', multiprocessing.cpu_count())
 print('cuda.is_available', torch.cuda.is_available())
-# print(device)
 # print_config()
         
 config_defaults = dict(
@@ -40,24 +37,25 @@ config_defaults = dict(
     inChannels = 1,
     outChannels = 2,
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
+    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     
-    project = 'PVC_NET',  # this is cutoff line of path_logRoot
-    
-    modelName='U2NET', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'U2NET'
+    project = 'PVC_NET',  # this is cutoff line of path_logRoot ##############################
+     
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
-    skipModule = "NONE", # "SE_BOTTOM5"
+    encModule = "ACM_0.01", # "SE_BOTTOM5"
+    decModule = "ACM_0.01", # "SE_BOTTOM5"
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
 
     path_logRoot = '20230207_BASE',
     spatial_dims = 1,
-    learning_rate = 4e-3,
+    learning_rate = 1e-3,
     batch_size = 256, # 256
     dropout = 0.01,
     thresholdRPeak = 0.7,
-    skipASPP = "NONE",
+    # skipASPP = "NONE",
     lossFn = 'BCE',
     se = 'se',
     mtl = 'NONE'
@@ -115,7 +113,7 @@ def train():
     
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
-    lr_monitor_callback = LearningRateMonitor(logging_interval='epoch',)
+    lr_monitor_callback = LearningRateMonitor(logging_interval='epoch')
     early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=20, verbose=False)
     loss_checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_loss", save_top_k=1, verbose=False)
     # metric_checkpoint_callback = ModelCheckpoint(monitor='val_AUPRC_Class1Raw', mode='max', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_metric", save_top_k=1, verbose=False)
@@ -125,13 +123,13 @@ def train():
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=500, # 80
+                        max_epochs=400, # 80
                         sync_batchnorm=True,
                         # benchmark=False,
                         # deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.6, swa_lrs=1e-5)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.6, swa_lrs=1e-4)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -248,21 +246,34 @@ class PVC_NET(pl.LightningModule):
                             upsample = hyperparameters['upsample'],
                             dropout = hyperparameters['dropout'],
                             supervision = hyperparameters['supervision'],
-                            skipModule = hyperparameters['skipModule'],
-                            skipASPP =  hyperparameters['skipASPP'],
+                            # skipModule = hyperparameters['skipModule'],
+                            # skipASPP =  hyperparameters['skipASPP'],
+                            encModule = hyperparameters['encModule'],
+                            decModule = hyperparameters['decModule'],
                             segheadModule = hyperparameters['segheadModule'],
                             se_module= hyperparameters['se'],
                             mtl=hyperparameters['mtl'],
                            )
             
-        elif 'U2' in hyperparameters['modelName']:
+        elif hyperparameters['modelName'] == 'U2NET':
             self.net = nets.U2NET(in_ch=hyperparameters['inChannels'],
                                   out_ch=hyperparameters['outChannels'],
                                 #   skipModule = hyperparameters['skipModule'],
-                                  encModule = 'ACM', # hyperparameters['encModule'],
-                                  decModule = 'ACM', # hyperparameters['decModule'],
+                                  encModule = hyperparameters['encModule'],
+                                  decModule = hyperparameters['decModule'],
                                   dropout = hyperparameters['dropout'],
                                   temperature=.5,
+                                  norm = hyperparameters['norm'],
+                                 )
+        
+        elif hyperparameters['modelName'] == 'U2NETP':
+            self.net = nets.U2NETP(in_ch=hyperparameters['inChannels'],
+                                  out_ch=hyperparameters['outChannels'],
+                                #   skipModule = hyperparameters['skipModule'],
+                                  encModule = hyperparameters['encModule'],
+                                  decModule = hyperparameters['decModule'],
+                                  dropout = hyperparameters['dropout'],
+                                #   temperature=.5,
                                   norm = hyperparameters['norm'],
                                  )
             
@@ -289,7 +300,8 @@ class PVC_NET(pl.LightningModule):
 
             # yhat, loss_dp = yhat # ACM loss
             # loss = self.lossFn(yhat,y) # ACM loss
-            # loss = loss + loss_dp # ACM loss
+            # loss = loss + loss_dp * 0.1# ACM loss
+            # print('dp')
 
             # yhat, yhat_mtl = yhat
             # loss = self.lossFn(yhat,y) + self.lossFn(yhat_mtl.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
@@ -326,9 +338,9 @@ class PVC_NET(pl.LightningModule):
         return sliding_window_inference(x, self.featureLength, 128, predictor, mode='gaussian', overlap=0.75)
         
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr = self.learning_rate)
         # return optimizer
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
         # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, min_lr=1e-6)
         # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=2e-3, pct_start=0.02, total_steps=self.trainer.estimated_stepping_batches)
         return {'optimizer': optimizer,

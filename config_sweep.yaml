@@ -5,8 +5,8 @@ metric:
     name: testMIT_AUPRC_Class1Raw
     goal: maximize
 parameters:
-    # modelName:
-    #     values: ['efficientnet-b0','efficientnet-b1','efficientnet-b2']
+    modelName:
+        values: ['resnet34','U2NET','U2NETP','efficientnet-b0','efficientnet-b1','efficientnet-b2']
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -15,17 +15,20 @@ parameters:
     #     values: ['zscoreI', 'zscoreO', 'minmaxI']
     # se_module:
     #     values: ['se','acm','nlnn','deeprft','cbam']
-    sampler:
-        values: [True, False]
-    lossFn:
-        values: ['BCE', 'FOCAL', 'BCEFOCAL']
+    # sampler:
+    #     values: [True, False]
+    # lossFn:
+    #     values: ['BCE', 'FOCAL', 'BCEFOCAL']
     # upsample:
     #     values: ['deconv', 'pixelshuffle']
     # supervision: 
     #     values: ['NONE','TYPE1','TYPE2']
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
-    # skipModule:
-    #     values: ['NONE', 'SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5']
+
+    encModule:
+        values: ['SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5','NONE']
+    decModule:
+        values: ['SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5','NONE']
     # segheadModule:
     #     values: ['NONE','SE']
