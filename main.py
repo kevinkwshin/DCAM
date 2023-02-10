@@ -47,14 +47,14 @@ config_defaults = dict(
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
-    skipModule = "SE_BOTTOM5", 
+    skipModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
 
     path_logRoot = '20230207_BASE',
     spatial_dims = 1,
     learning_rate = 4e-3,
-    batch_size = 512, # 256
+    batch_size = 256, # 256
     dropout = 0.01,
     thresholdRPeak = 0.7,
     skipASPP = "NONE",
@@ -116,7 +116,7 @@ def train():
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch',)
-    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=12, verbose=False)
+    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=20, verbose=False)
     loss_checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_loss", save_top_k=1, verbose=False)
     # metric_checkpoint_callback = ModelCheckpoint(monitor='val_AUPRC_Class1Raw', mode='max', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_metric", save_top_k=1, verbose=False)
 
@@ -258,29 +258,13 @@ class PVC_NET(pl.LightningModule):
         elif 'U2' in hyperparameters['modelName']:
             self.net = nets.U2NET(in_ch=hyperparameters['inChannels'],
                                   out_ch=hyperparameters['outChannels'],
-                                #   nnblock = hyperparameters['nnblock'],
-                                #   ASPP = hyperparameters['ASPP'],
-                                #   FFC = hyperparameters['FFC'],
-                                #   acm = hyperparameters['acm'],
+                                #   skipModule = hyperparameters['skipModule'],
+                                  encModule = 'ACM', # hyperparameters['encModule'],
+                                  decModule = 'ACM', # hyperparameters['decModule'],
                                   dropout = hyperparameters['dropout'],
-                                  temperature=1,
+                                  temperature=.5,
                                   norm = hyperparameters['norm'],
                                  )
-            
-#         elif 'unetr' in hyperparameters['modelName']:
-#             self.net= monai.networks.nets.UNETR(hyperparameters['in_channels'], 
-#                                                 hyperparameters['out_channels'],
-#                                                 2048,
-#                                                 feature_size = 16,
-#                                                 hidden_size = 768,
-#                                                 mlp_dim = 3072,
-#                                                 num_heads = 12,
-#                                                 pos_embed = 'conv',
-#                                                 norm_name= hyperparameters['norm'],
-#                                                 conv_block = True,
-#                                                 res_block = True,
-#                                                 dropout_rate = 0.0,
-#                                                 spatial_dims = hyperparameters['spatial_dims'],)
             
         # define loss using hyperparameters
         if hyperparameters['lossFn']=='BCE':

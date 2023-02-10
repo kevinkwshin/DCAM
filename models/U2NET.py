@@ -1,14 +1,19 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .acm import *
+from .cbam import *
+from .deeprft import *
+from .ffc import *
+from .nnblock import *
+
+import monai
+
 ## upsample tensor 'src' to have the same spatial size with tensor 'tar'
 def _upsample_like(src,tar):
     src = F.upsample(src,size=tar.shape[2:],mode='linear')
-
     return src
-
 
 class REBNCONV(nn.Module):
     def __init__(self,in_ch=1, out_ch=1, dirate=1, dropout=0.1, norm='instance'):
@@ -29,7 +34,6 @@ class REBNCONV(nn.Module):
         xout = self.dropout(xout)
         
         return xout
-
 
 ### RSU-7 ###
 class RSU7(nn.Module):#UNet07DRES(nn.Module):
@@ -323,7 +327,7 @@ class RSU4F(nn.Module):#UNet04FRES(nn.Module):
 ##### U^2-Net ####
 class U2NET(nn.Module):
 
-    def __init__(self, in_ch=1, out_ch=1, skipModule='NONE', temperature=1, dropout=0.1, norm='instance'):
+    def __init__(self, in_ch=1, out_ch=1, encModule='NONE', decModule='NONE', temperature=1, dropout=0.1, norm='instance'):
         super(U2NET,self).__init__()
 
         self.stage1 = RSU7(in_ch,32,64,dropout=dropout, norm= norm)
@@ -361,49 +365,153 @@ class U2NET(nn.Module):
         
         fea = [64, 128, 256, 512, 512, 512]
 
-        self.skipModule = skipModule
-        if self.skipModule == 'NONE':
-            self.skipModule1 = nn.Identity()
-            self.skipModule2 = nn.Identity()
-            self.skipModule3 = nn.Identity()
-            self.skipModule4 = nn.Identity()
-            self.skipModule5 = nn.Identity()
-            self.skipModule6 = nn.Identity()
-        
-        if 'NN' in self.skipModule:
+        self.encModule = encModule
+        print('U2-NET encModule is', encModule)
+
+        self.encModule1 = nn.Identity()
+        self.encModule2 = nn.Identity()
+        self.encModule3 = nn.Identity()
+        self.encModule4 = nn.Identity()
+        self.encModule5 = nn.Identity()
+        self.encModule6 = nn.Identity()
+
+        if 'SE' in self.encModule:
             spatial_dims = 1
-            self.skipModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.skipModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.skipModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.skipModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.skipModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)     
-            self.skipModule6 = NLBlockND(in_channels=fea[5], mode='embedded', dimension=spatial_dims, norm_layer=norm)                      
+            self.encModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0])
+            self.encModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
+            self.encModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
+            self.encModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
+            self.encModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
+            self.encModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+        
+        elif 'NN' in self.encModule:
+            spatial_dims = 1
+            self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)     
+            self.encModule6 = NLBlockND(in_channels=fea[5], mode='embedded', dimension=spatial_dims, norm_layer=norm)                      
 
-        if 'FFC' in self.skipModule:
-            self.skipModule1 = FFC_BN_ACT(fea[0],fea[0])
-            self.skipModule2 = FFC_BN_ACT(fea[1],fea[1])
-            self.skipModule3 = FFC_BN_ACT(fea[2],fea[2])
-            self.skipModule4 = FFC_BN_ACT(fea[3],fea[3])
-            self.skipModule5 = FFC_BN_ACT(fea[4],fea[4])
-            self.skipModule6 = FFC_BN_ACT(fea[5],fea[5])            
+        elif 'FFC' in self.encModule:
+            self.encModule1 = FFC_BN_ACT(fea[0],fea[0])
+            self.encModule2 = FFC_BN_ACT(fea[1],fea[1])
+            self.encModule3 = FFC_BN_ACT(fea[2],fea[2])
+            self.encModule4 = FFC_BN_ACT(fea[3],fea[3])
+            self.encModule5 = FFC_BN_ACT(fea[4],fea[4])
+            self.encModule6 = FFC_BN_ACT(fea[5],fea[5])            
 
-        if 'DEEPRFT' in self.skipModule:
-            self.skipModule1 = FFT_ConvBlock(fea[0],fea[0])
-            self.skipModule2 = FFT_ConvBlock(fea[1],fea[1])
-            self.skipModule3 = FFT_ConvBlock(fea[2],fea[2])
-            self.skipModule4 = FFT_ConvBlock(fea[3],fea[3])
-            self.skipModule5 = FFT_ConvBlock(fea[4],fea[4])
-            self.skipModule6 = FFT_ConvBlock(fea[5],fea[5])
+        elif 'DEEPRFT' in self.encModule:
+            self.encModule1 = FFT_ConvBlock(fea[0],fea[0])
+            self.encModule2 = FFT_ConvBlock(fea[1],fea[1])
+            self.encModule3 = FFT_ConvBlock(fea[2],fea[2])
+            self.encModule4 = FFT_ConvBlock(fea[3],fea[3])
+            self.encModule5 = FFT_ConvBlock(fea[4],fea[4])
+            self.encModule6 = FFT_ConvBlock(fea[5],fea[5])
             
-        if 'ACM' in self.skipModule:
-            group = 4
-            self.skipModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
-            self.skipModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
-            self.skipModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
-            self.skipModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
-            self.skipModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
-            self.skipModule6 = ACM(num_heads=fea[5]//group, num_features=fea[5], orthogonal_loss=False)
+        elif 'ACM' in self.encModule:
+            # group = 4
+            # self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            # self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            # self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            # self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+            # self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            # self.encModule6 = ACM(num_heads=fea[5]//group, num_features=fea[5], orthogonal_loss=False)
+
+            group = 32
+            self.decModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=False)
+            self.decModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=False)
+            self.decModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=False)
+            self.decModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=False)
+            self.decModule5 = ACM(num_heads=group, num_features=fea[4], orthogonal_loss=False)
+            self.decModule6 = ACM(num_heads=group, num_features=fea[5], orthogonal_loss=False)
+
+        elif 'MHA' in self.encModule:
+            featureLength = 1280
+            self.encModule1 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01) 
+            self.encModule2 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+            self.encModule3 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.encModule4 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.encModule5 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
+            self.encModule6 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
+        
+        self.decModule = decModule
+        print('U2-NET decModule is', decModule)
+
+        self.decModule1 = nn.Identity()
+        self.decModule2 = nn.Identity()
+        self.decModule3 = nn.Identity()
+        self.decModule4 = nn.Identity()
+        self.decModule5 = nn.Identity()
+        self.decModule6 = nn.Identity()
+
+        fea = [64, 64, 128, 256, 512, 512]
+
+        if 'SE' in self.decModule:
+            spatial_dims = 1
+            self.decModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
+            self.decModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
+            self.decModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
+            self.decModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
+            self.decModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
+            self.decModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+
+        elif 'NN' in self.decModule:
+            spatial_dims = 1
+            self.decModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.decModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)     
+            self.decModule6 = NLBlockND(in_channels=fea[5], mode='embedded', dimension=spatial_dims, norm_layer=norm)                      
+
+        elif 'FFC' in self.decModule:
+            self.decModule1 = FFC_BN_ACT(fea[0],fea[0])
+            self.decModule2 = FFC_BN_ACT(fea[1],fea[1])
+            self.decModule3 = FFC_BN_ACT(fea[2],fea[2])
+            self.decModule4 = FFC_BN_ACT(fea[3],fea[3])
+            self.decModule5 = FFC_BN_ACT(fea[4],fea[4])
+            self.decModule6 = FFC_BN_ACT(fea[5],fea[5])            
+
+        elif 'DEEPRFT' in self.decModule:
+            self.decModule1 = FFT_ConvBlock(fea[0],fea[0])
+            self.decModule2 = FFT_ConvBlock(fea[1],fea[1])
+            self.decModule3 = FFT_ConvBlock(fea[2],fea[2])
+            self.decModule4 = FFT_ConvBlock(fea[3],fea[3])
+            self.decModule5 = FFT_ConvBlock(fea[4],fea[4])
+            self.decModule6 = FFT_ConvBlock(fea[5],fea[5])
             
+        elif 'ACM' in self.decModule:
+            # group = 4
+            # self.decModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            # self.decModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            # self.decModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            # self.decModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+            # self.decModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            # self.decModule6 = ACM(num_heads=fea[5]//group, num_features=fea[5], orthogonal_loss=False)
+
+            group = 32
+            self.decModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=False)
+            self.decModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=False)
+            self.decModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=False)
+            self.decModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=False)
+            self.decModule5 = ACM(num_heads=group, num_features=fea[4], orthogonal_loss=False)
+            self.decModule6 = ACM(num_heads=group, num_features=fea[5], orthogonal_loss=False)
+
+        elif 'MHA' in self.decModule:
+            featureLength = 1280
+            self.decModule1 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01) 
+            self.decModule2 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+            self.decModule3 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.decModule4 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.decModule5 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
+            self.decModule6 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
+ 
+        # featureLength = 1280
+        # self.lastSelfAttention = nn.Identity()
+        # self.lastSelfAttention = nn.MultiheadAttention(featureLength//1, 1, batch_first=True, dropout=0.01) 
+        spatial_dims = 1
+        self.lastSelfAttention = monai.networks.blocks.ChannelSELayer(spatial_dims, 12) 
         self.temperature = temperature
             
     def forward(self,x):
@@ -412,50 +520,91 @@ class U2NET(nn.Module):
 
         #stage 1
         hx1 = self.stage1(hx)
-        # hx1 = hx1 + self.skipModule1(hx1)
-        hx1 = self.skipModule1(hx1)
+        if "MHA" not in self.encModule:    
+           hx1 = self.encModule1(hx1)
+        else: 
+            hx1,_ = self.encModule1(hx1,hx1,hx1)
         hx = self.pool12(hx1)
 
         #stage 2
         hx2 = self.stage2(hx)
-        hx2 = self.skipModule2(hx2)
+        if "MHA" not in self.encModule:    
+            hx2 = self.encModule2(hx2)
+        else: 
+            hx2,_ = self.encModule2(hx2,hx2,hx2)
         hx = self.pool23(hx2)
 
         #stage 3
         hx3 = self.stage3(hx)
-        hx3 = self.skipModule3(hx3)
+        if "MHA" not in self.encModule:    
+            hx3 = self.encModule3(hx3)
+        else: 
+            hx3,_ = self.encModule3(hx3,hx3,hx3)
         hx = self.pool34(hx3)
 
         #stage 4
         hx4 = self.stage4(hx)
-        hx4 = self.skipModule4(hx4)
+        if "MHA" not in self.encModule:    
+            hx4 = self.encModule4(hx4)
+        else: 
+            hx4,_ = self.encModule4(hx4,hx4,hx4)
         hx = self.pool45(hx4)
 
         #stage 5
         hx5 = self.stage5(hx)
-        hx5 = self.skipModule5(hx5)
+        if "MHA" not in self.encModule:    
+            hx5 = self.encModule5(hx5)
+        else: 
+            hx5,_ = self.encModule5(hx5,hx5,hx5)
         hx = self.pool56(hx5)
 
         #stage 6
         hx6 = self.stage6(hx)
-        hx6 = self.skipModule6(hx6)
+        if "MHA" not in self.encModule:    
+            hx6 = self.encModule6(hx6)
+        else: 
+            hx6,_ = self.encModule6(hx6,hx6,hx6)
         hx6up = _upsample_like(hx6,hx5)
-        
+
         #-------------------- decoder --------------------
         hx5d = self.stage5d(torch.cat((hx6up,hx5),1))
+        if "MHA" not in self.decModule:    
+            # print('hx5d', hx5d.shape)
+            hx5d = self.decModule5(hx5d)
+        else: 
+            hx5d,_ = self.decModule5(hx5d,hx5d,hx5d)
         hx5dup = _upsample_like(hx5d,hx4)
 
         hx4d = self.stage4d(torch.cat((hx5dup,hx4),1))
+        if "MHA" not in self.decModule:    
+            # print('hx4d',hx4d.shape)
+            hx4d = self.decModule4(hx4d)
+        else: 
+            hx4d,_ = self.decModule4(hx4d,hx4d,hx4d)
         hx4dup = _upsample_like(hx4d,hx3)
 
         hx3d = self.stage3d(torch.cat((hx4dup,hx3),1))
+        if "MHA" not in self.decModule:    
+            # print('hx3d',hx3d.shape)
+            hx3d = self.decModule3(hx3d)
+        else: 
+            hx3d,_ = self.decModule3(hx3d,hx3d,hx3d)
         hx3dup = _upsample_like(hx3d,hx2)
 
         hx2d = self.stage2d(torch.cat((hx3dup,hx2),1))
+        if "MHA" not in self.decModule:    
+            # print('hx2d',hx2d.shape)
+            hx2d = self.decModule2(hx2d)
+        else: 
+            hx2d,_ = self.decModule2(hx2d,hx2d,hx2d)
         hx2dup = _upsample_like(hx2d,hx1)
 
         hx1d = self.stage1d(torch.cat((hx2dup,hx1),1))
-
+        if "MHA" not in self.decModule:    
+            # print('hx1d',hx1d.shape)
+            hx1d = self.decModule1(hx1d)
+        else: 
+            hx1d,_ = self.decModule1(hx1d,hx1d,hx1d)
 
         #side output
         d1 = self.side1(hx1d)
@@ -475,7 +624,10 @@ class U2NET(nn.Module):
         d6 = self.side6(hx6)
         d6 = _upsample_like(d6,d1)
 
-        d0 = self.outconv(torch.cat((d1,d2,d3,d4,d5,d6),1))
+        d0 = torch.cat((d1,d2,d3,d4,d5,d6),1)
+        d0 = self.lastSelfAttention(d0)
+        # d0,_ = self.lastSelfAttention(d0,d0,d0)
+        d0 = self.outconv(d0)
 
         return torch.sigmoid(d0/self.temperature), torch.sigmoid(d1/self.temperature), torch.sigmoid(d2/self.temperature), torch.sigmoid(d3/self.temperature), torch.sigmoid(d4/self.temperature), torch.sigmoid(d5/self.temperature), torch.sigmoid(d6/self.temperature)
 
