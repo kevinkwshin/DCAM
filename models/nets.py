@@ -32,488 +32,6 @@ def bn2instance(module):
     del module
     return module_output
 
-# import torch
-# import torch.nn as nn
-# from torch.utils.model_zoo import load_url as load_state_dict_from_url
-# # import context_module
-
-# num_acm_groups = 16
-
-# model_urls = {
-#     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
-#     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
-#     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
-#     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
-#     'resnext50_32x4d': 'https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth',
-#     'resnext101_32x8d': 'https://download.pytorch.org/models/resnext101_32x8d-8ba56ff5.pth',
-#     'wide_resnet50_2': 'https://download.pytorch.org/models/wide_resnet50_2-95faca4d.pth',
-#     'wide_resnet101_2': 'https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth',
-# }
-
-
-# def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
-#     """3x3 convolution with padding"""
-#     return nn.Conv1d(in_planes, out_planes, kernel_size=3, stride=stride,
-#                      padding=dilation, groups=groups, bias=False, dilation=dilation)
-
-# def conv1x1(in_planes, out_planes, stride=1):
-#     """1x1 convolution"""
-#     return nn.Conv1d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-
-# class BasicBlock(nn.Module):
-#     expansion = 1
-#     __constants__ = ['downsample']
-
-#     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
-#                  base_width=64, dilation=1, norm_layer=None, module="none"):
-#         super(BasicBlock, self).__init__()
-#         if norm_layer is None:
-#             norm_layer = nn.BatchNorm1d
-#         if groups != 1 or base_width != 64:
-#             raise ValueError('BasicBlock only supports groups=1 and base_width=64')
-#         if dilation > 1:
-#             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
-#         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
-#         self.conv1 = conv3x3(inplanes, planes, stride)
-#         self.bn1 = norm_layer(planes)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.conv2 = conv3x3(planes, planes)
-#         self.bn2 = norm_layer(planes)
-#         self.downsample = downsample
-#         self.stride = stride
-
-#         if module:
-#             print("not implemented yet")
-#             raise ValueError
-
-#     def forward(self, x):
-#         identity = x
-
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out)
-#         out = self.bn2(out)
-
-#         if self.downsample is not None:
-#             identity = self.downsample(x)
-
-#         out += identity
-#         out = self.relu(out)
-
-#         return out
-
-
-# class Bottleneck(nn.Module):
-#     expansion = 4
-#     __constants__ = ['downsample']
-
-#     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, base_width=64, dilation=1, norm_layer=None, module="none", orthogonal_loss=False):
-#         super(Bottleneck, self).__init__()
-#         if norm_layer is None:
-#             norm_layer = nn.BatchNorm1d
-#         width = int(planes * (base_width / 64.)) * groups
-
-#         self.conv1 = conv1x1(inplanes, width)
-#         self.bn1 = norm_layer(width)
-#         self.conv2 = conv3x3(width, width, stride, groups, dilation)
-#         self.bn2 = norm_layer(width)
-#         self.conv3 = conv1x1(width, planes * self.expansion)
-#         self.bn3 = norm_layer(planes * self.expansion)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.downsample = downsample
-#         self.stride = stride
-#         self.module_type = module
-
-#         if module == "none":
-#             self.module = None
-#         elif module == 'acm':
-#             self.module = ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
-#             self.module.init_parameters()
-#         else:
-#             raise ValueError("undefined module")
-
-#     def forward(self, x):
-
-#         if isinstance(x, tuple):
-#             x, prev_dp = x
-#         else:
-#             prev_dp = None
-
-#         identity = x
-
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out)
-
-#         out = self.bn2(out)
-
-#         out = self.relu(out)
-
-#         out = self.conv3(out)
-#         out = self.bn3(out)
-
-#         if self.downsample is not None:
-#             identity = self.downsample(x)
-
-#         dp = None
-#         if self.module is not None:
-#             out = self.module(out)
-#             if isinstance(out, tuple):
-#                 out, dp = out
-#                 if prev_dp is not None:
-#                     dp = prev_dp + dp
-
-#         out += identity
-#         out = self.relu(out)
-
-#         if dp is None:
-#             return out
-#         else:
-#             # diff loss
-#             return out, dp
-
-# class ResNet(nn.Module):
-
-#     def __init__(self, block, layers, in_channels=3, num_classes=1000, zero_init_residual=False,
-#                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-#                  norm_layer=None, module=""):
-#         super(ResNet, self).__init__()
-#         if norm_layer is None:
-#             norm_layer = nn.BatchNorm1d
-#         self._norm_layer = norm_layer
-
-#         self.inplanes = 64
-#         self.dilation = 1
-#         if replace_stride_with_dilation is None:
-#             # each element in the tuple indicates if we should replace
-#             # the 2x2 stride with a dilated convolution instead
-#             replace_stride_with_dilation = [False, False, False]
-#         if len(replace_stride_with_dilation) != 3:
-#             raise ValueError("replace_stride_with_dilation should be None "
-#                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
-#         self.groups = groups
-#         self.base_width = width_per_group
-#         self.conv1 = nn.Conv1d(in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-#         self.bn1 = norm_layer(self.inplanes)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
-
-#         assert module in ['none', 'acm']
-#         self.layer1 = self._make_layer(block, 64,  layers[0], 1, dilate=False,                           module=module)
-#         self.layer2 = self._make_layer(block, 128, layers[1], 2, dilate=replace_stride_with_dilation[0], module=module)
-#         self.layer3 = self._make_layer(block, 256, layers[2], 2, dilate=replace_stride_with_dilation[1], module=module)
-#         self.layer4 = self._make_layer(block, 512, layers[3], 2, dilate=replace_stride_with_dilation[2], module=module)
-#         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-#         # self.fc = nn.Linear(512 * block.expansion, num_classes)
-#         self.classifier_conv =nn.Conv1d(512 * block.expansion, num_classes, kernel_size=1)
-#         self.classifier_maxpool= nn.AdaptiveMaxPool1d(1)
-
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv1d):
-#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#             elif isinstance(m, (nn.BatchNorm1d, nn.GroupNorm, nn.InstanceNorm2d, nn.LayerNorm)):
-#                 try:
-#                     nn.init.constant_(m.weight, 1)
-#                     nn.init.constant_(m.bias, 0)
-#                 except:
-#                     print("Module without affine doesnt have weights")
-
-#         # Zero-initialize the last BN in each residual branch,
-#         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-#         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-#         if zero_init_residual:
-#             for m in self.modules():
-#                 if isinstance(m, Bottleneck):
-#                     nn.init.constant_(m.bn3.weight, 0)
-#                 elif isinstance(m, BasicBlock):
-#                     nn.init.constant_(m.bn2.weight, 0)
-
-#     def _make_layer(self, block, planes, blocks, stride=1, dilate=False, module=""):
-#         norm_layer = self._norm_layer
-#         downsample = None
-#         previous_dilation = self.dilation
-#         if dilate:
-#             self.dilation *= stride
-#             stride = 1
-#         if stride != 1 or self.inplanes != planes * block.expansion:
-#             downsample = nn.Sequential(
-#                 conv1x1(self.inplanes, planes * block.expansion, stride),
-#                 norm_layer(planes * block.expansion),
-#             )
-
-#         layers = []
-
-#         # configure module placement
-#         module_placement = [module] * blocks
-#         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-#                             self.base_width, previous_dilation, norm_layer, module=module_placement[0]))
-#         self.inplanes = planes * block.expansion
-#         for block_idx in range(1, blocks):
-
-#             layers.append(block(self.inplanes, planes, groups=self.groups,
-#                                 base_width=self.base_width, dilation=self.dilation,
-#                                 norm_layer=norm_layer, module=module_placement[block_idx]))
-
-#         return nn.Sequential(*layers)
-
-#     def _forward_body(self, x):
-
-#         x0 = self.conv1(x)
-#         x0 = self.bn1(x0)
-#         x0 = self.relu(x0)
-#         x0 = self.maxpool(x0)
-
-#         x1 = self.layer1(x0)
-#         x2 = self.layer2(x1)
-#         x3 = self.layer3(x2)
-#         x4 = self.layer4(x3)
-#         return x0,x1,x2,x3,x4
-    
-#     def _forward_task(self, x):
-    
-# #         x = self.avgpool(x)
-# #         x = x.squeeze()
-# #         x = self.fc(x)
-# #         x = nn.Sigmoid()(x)
-        
-#         x = self.classifier_conv(x)
-#         x = self.classifier_maxpool(x)
-#         x = x.squeeze()
-#         x = nn.Sigmoid()(x)
-        
-#         return x
-
-#     def forward(self, x):
-#         x0,x1,x2,x3,x4 = self._forward_body(x)
-#         if isinstance(x4, tuple):
-#             x4, dp = x4
-#         else:
-#             dp = None
-#         logit = self._forward_task(x4)
-#         if dp is not None:
-#             return logit, dp
-#         else:
-#             return logit        
-        
-# class ResNetFeature(nn.Module):
-#     def __init__(self, block, layers, in_channels=3, num_classes=1000, zero_init_residual=False,
-#                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-#                  norm_layer=None, module=""):
-#         super(ResNet, self).__init__()
-#         if norm_layer is None:
-#             norm_layer = nn.BatchNorm1d
-#         self._norm_layer = norm_layer
-
-#         self.inplanes = 64
-#         self.dilation = 1
-#         if replace_stride_with_dilation is None:
-#             # each element in the tuple indicates if we should replace
-#             # the 2x2 stride with a dilated convolution instead
-#             replace_stride_with_dilation = [False, False, False]
-#         if len(replace_stride_with_dilation) != 3:
-#             raise ValueError("replace_stride_with_dilation should be None "
-#                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
-#         self.groups = groups
-#         self.base_width = width_per_group
-#         self.conv1 = nn.Conv1d(in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-#         self.bn1 = norm_layer(self.inplanes)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
-
-#         assert module in ['none', 'acm']
-#         self.layer1 = self._make_layer(block, 64,  layers[0], 1, dilate=False,                           module=module)
-#         self.layer2 = self._make_layer(block, 128, layers[1], 2, dilate=replace_stride_with_dilation[0], module=module)
-#         self.layer3 = self._make_layer(block, 256, layers[2], 2, dilate=replace_stride_with_dilation[1], module=module)
-#         self.layer4 = self._make_layer(block, 512, layers[3], 2, dilate=replace_stride_with_dilation[2], module=module)
-
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv1d):
-#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#             elif isinstance(m, (nn.BatchNorm1d, nn.GroupNorm, nn.InstanceNorm2d, nn.LayerNorm)):
-#                 try:
-#                     nn.init.constant_(m.weight, 1)
-#                     nn.init.constant_(m.bias, 0)
-#                 except:
-#                     print("Module without affine doesnt have weights")
-
-#         # Zero-initialize the last BN in each residual branch,
-#         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-#         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-#         if zero_init_residual:
-#             for m in self.modules():
-#                 if isinstance(m, Bottleneck):
-#                     nn.init.constant_(m.bn3.weight, 0)
-#                 elif isinstance(m, BasicBlock):
-#                     nn.init.constant_(m.bn2.weight, 0)
-
-#     def _make_layer(self, block, planes, blocks, stride=1, dilate=False, module=""):
-#         norm_layer = self._norm_layer
-#         downsample = None
-#         previous_dilation = self.dilation
-#         if dilate:
-#             self.dilation *= stride
-#             stride = 1
-#         if stride != 1 or self.inplanes != planes * block.expansion:
-#             downsample = nn.Sequential(
-#                 conv1x1(self.inplanes, planes * block.expansion, stride),
-#                 norm_layer(planes * block.expansion),
-#             )
-
-#         layers = []
-
-#         # configure module placement
-#         module_placement = [module] * blocks
-#         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-#                             self.base_width, previous_dilation, norm_layer, module=module_placement[0]))
-#         self.inplanes = planes * block.expansion
-#         for block_idx in range(1, blocks):
-
-#             layers.append(block(self.inplanes, planes, groups=self.groups,
-#                                 base_width=self.base_width, dilation=self.dilation,
-#                                 norm_layer=norm_layer, module=module_placement[block_idx]))
-
-#         return nn.Sequential(*layers)
-
-#     def _forward_body(self, x):
-
-#         x0 = self.conv1(x)
-#         x0 = self.bn1(x0)
-#         x0 = self.relu(x0)
-#         x0 = self.maxpool(x0)
-
-#         x1 = self.layer1(x0)
-#         x2 = self.layer2(x1)
-#         x3 = self.layer3(x2)
-#         x4 = self.layer4(x3)
-#         return x0,x1,x2,x3,x4
-    
-#     def _forward_task(self, x):
-    
-# #         x = self.avgpool(x)
-# #         x = x.squeeze()
-# #         x = self.fc(x)
-# #         x = nn.Sigmoid()(x)
-        
-#         x = self.classifier_conv(x)
-#         x = self.classifier_maxpool(x)
-#         x = x.squeeze()
-#         x = nn.Sigmoid()(x)
-        
-#         return x
-
-#     def forward(self, x):
-#         x0,x1,x2,x3,x4 = self._forward_body(x)
-#         if isinstance(x4, tuple):
-#             x4, dp = x4
-#         else:
-#             dp = None
-#         if dp is not None:
-#             return x0,x1,x2,x3,x4, dp
-#         else:
-#             return x0,x1,x2,x3,x4       
-
-# def _resnet(arch, block, layers, pretrained, progress, **kwargs):
-#     model = ResNet(block, layers, **kwargs)
-#     if pretrained:
-#         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-#         try:
-#             model.load_state_dict(state_dict)
-#         except:
-#             print("keys did not mathc")
-#             print("entering custom loading statedict")
-#             existing_statedict = model.state_dict()
-#             cooccuring = {}
-#             for key, val in state_dict.items():
-#                 if key in existing_statedict:
-#                     cooccuring[key] = state_dict[key]
-#                 else:
-#                     print(key, "does not exists in the new model")
-#             print("keys adding ", len(cooccuring.keys()))
-#             print("whole keys", len(existing_statedict.keys()))
-#             existing_statedict.update(cooccuring)
-#             model.load_state_dict(existing_statedict)
-
-#     return model
-
-
-# def resnet34(pretrained=False, progress=True, **kwargs):
-#     r"""ResNet-34 model from
-#     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
-#     Args:
-#         pretrained (bool): If True, returns a model pre-trained on ImageNet
-#         progress (bool): If True, displays a progress bar of the download to stderr
-#     """
-#     return _resnet('resnet34', BasicBlock, [3, 4, 6, 3], pretrained, progress,
-#                    **kwargs)
-
-
-# def resnet50(pretrained=False, progress=True, **kwargs):
-#     r"""ResNet-50 model from
-#     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
-#     Args:
-#         pretrained (bool): If True, returns a model pre-trained on ImageNet
-#         progress (bool): If True, displays a progress bar of the download to stderr
-#     """
-#     return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress,
-#                    **kwargs)
-
-
-# def resnet101(pretrained=False, progress=True, **kwargs):
-#     r"""ResNet-101 model from
-#     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
-#     Args:
-#         pretrained (bool): If True, returns a model pre-trained on ImageNet
-#         progress (bool): If True, displays a progress bar of the download to stderr
-#     """
-#     return _resnet('resnet101', Bottleneck, [3, 4, 23, 3], pretrained, progress,
-#                    **kwargs)
-
-
-# def resnext50_32x4d(pretrained=False, progress=True, **kwargs):
-#     r"""ResNeXt-50 32x4d model from
-#     `"Aggregated Residual Transformation for Deep Neural Networks" <https://arxiv.org/pdf/1611.05431.pdf>`_
-#     Args:
-#         pretrained (bool): If True, returns a model pre-trained on ImageNet
-#         progress (bool): If True, displays a progress bar of the download to stderr
-#     """
-#     kwargs['groups'] = 32
-#     kwargs['width_per_group'] = 4
-#     return _resnet('resnext50_32x4d', Bottleneck, [3, 4, 6, 3],
-#                    pretrained, progress, **kwargs)
-
-# def resnet(arch, pretrained, in_channels, num_classes, zero_init_residual, module):
-#     """
-#     # # 1D model
-#     # # net = resnet('resnet101',False,1,2,False,'acm',32)
-#     # net = resnet('resnet101',False,1,2, False,'none',32)
-
-#     # x = torch.rand(2,1,64)
-#     # yhat = net(x)
-
-#     # if isinstance(yhat,tuple):
-#     #     for yh in yhat:
-#     #         print(yh.shape)
-#     # else:
-#     #     print(yhat.shape)
-#     """
-#     if arch == "resnet50":
-#         model = resnet50(pretrained=pretrained, progress=True, in_channels=in_channels, num_classes=num_classes,
-#                          zero_init_residual=zero_init_residual, module=module)
-#     elif arch == "resnet101":
-#         model = resnet101(pretrained=pretrained, progress=True, in_channels=in_channels, num_classes=num_classes,
-#                          zero_init_residual=zero_init_residual, module=module)
-#     elif arch == "resnext50_32x4d":
-#         model = resnet101(pretrained=pretrained, progress=True, in_channels=in_channels, num_classes=num_classes,
-#                          zero_init_residual=zero_init_residual, module=module)
-#     else:
-#         raise ValueError
-#     return model
-
 from typing import Optional, Sequence, Union
 
 import monai
@@ -529,311 +47,6 @@ from functools import partial
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
 from monai.networks.layers.factories import Act, Conv, Dropout, Norm, Pool
 
-# class ResNetBottleneck(nn.Module):
-#     expansion = 4
-
-#     def __init__(
-#         self,
-#         in_planes: int,
-#         planes: int,
-#         spatial_dims: int = 3,
-#         stride: int = 1,
-#         downsample: Union[nn.Module, partial, None] = None,
-#         # module="acm"
-#         module="none"
-#     ) -> None:
-#         """
-#         Args:
-#             in_planes: number of input channels.
-#             planes: number of output channels (taking expansion into account).
-#             spatial_dims: number of spatial dimensions of the input image.
-#             stride: stride to use for second conv layer.
-#             downsample: which downsample layer to use.
-#         """
-
-#         super().__init__()
-
-#         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-#         # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-#         norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
-
-#         self.conv1 = conv_type(in_planes, planes, kernel_size=1, bias=False)
-#         self.bn1 = norm_type(planes)
-#         self.conv2 = conv_type(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-#         self.bn2 = norm_type(planes)
-#         self.conv3 = conv_type(planes, planes * self.expansion, kernel_size=1, bias=False)
-#         self.bn3 = norm_type(planes * self.expansion)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.downsample = downsample
-#         self.stride = stride
-
-#         num_acm_groups = 32
-#         orthogonal_loss= False
-        
-#         if module == "none":
-#             self.module = None
-#         elif module == 'acm':
-#             self.module = nets.ACM(num_heads=num_acm_groups, num_features=planes * 4, orthogonal_loss=orthogonal_loss)
-#             self.module.init_parameters()
-#         else:
-#             raise ValueError("undefined module")
-
-
-#     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        
-#         if isinstance(x, tuple):
-#             x, prev_dp = x
-#         else:
-#             prev_dp = None
-
-#         residual = x
-
-#         out: torch.Tensor = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out)
-#         out = self.bn2(out)
-#         out = self.relu(out)
-
-#         out = self.conv3(out)
-#         out = self.bn3(out)
-
-#         if self.downsample is not None:
-#             residual = self.downsample(x)
-            
-#         dp = None
-#         if self.module is not None:
-#             out = self.module(out)
-#             if isinstance(out, tuple):
-#                 out, dp = out
-#                 if prev_dp is not None:
-#                     dp = prev_dp + dp
-
-#         out += residual
-#         out = self.relu(out)
-
-#         if dp is None:
-#             return out
-#         else:
-#             # diff loss
-#             return out, dp
-        
-# class ResNet(nn.Module):
-#     """
-#     ResNet based on: `Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>`_
-#     and `Can Spatiotemporal 3D CNNs Retrace the History of 2D CNNs and ImageNet? <https://arxiv.org/pdf/1711.09577.pdf>`_.
-#     Adapted from `<https://github.com/kenshohara/3D-ResNets-PyTorch/tree/master/models>`_.
-
-#     Args:
-#         block: which ResNet block to use, either Basic or Bottleneck.
-#             ResNet block class or str.
-#             for Basic: ResNetBlock or 'basic'
-#             for Bottleneck: ResNetBottleneck or 'bottleneck'
-#         layers: how many layers to use.
-#         block_inplanes: determine the size of planes at each step. Also tunable with widen_factor.
-#         spatial_dims: number of spatial dimensions of the input image.
-#         n_input_channels: number of input channels for first convolutional layer.
-#         conv1_t_size: size of first convolution layer, determines kernel and padding.
-#         conv1_t_stride: stride of first convolution layer.
-#         no_max_pool: bool argument to determine if to use maxpool layer.
-#         shortcut_type: which downsample block to use. Options are 'A', 'B', default to 'B'.
-#             - 'A': using `self._downsample_basic_block`.
-#             - 'B': kernel_size 1 conv + norm.
-#         widen_factor: widen output for each layer.
-#         num_classes: number of output (classifications).
-#         feed_forward: whether to add the FC layer for the output, default to `True`.
-
-#     """
-
-#     def __init__(
-#         self,
-#         block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
-#         layers: List[int],
-#         block_inplanes: List[int],
-#         spatial_dims: int = 3,
-#         n_input_channels: int = 3,
-#         conv1_t_size: Union[Tuple[int], int] = 7,
-#         conv1_t_stride: Union[Tuple[int], int] = 1,
-#         no_max_pool: bool = False,
-#         shortcut_type: str = "B",
-#         widen_factor: float = 1.0,
-#         num_classes: int = 400,
-#         feed_forward: bool = True,
-#         norm = 'instance'
-#     ) -> None:
-
-#         super().__init__()
-
-#         if isinstance(block, str):
-#             if block == "basic":
-#                 block = ResNetBlock
-#             elif block == "bottleneck":
-#                 block = ResNetBottleneck
-#             else:
-#                 raise ValueError("Unknown block '%s', use basic or bottleneck" % block)
-
-#         conv_type: Type[Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]] = Conv[Conv.CONV, spatial_dims]
-#         if norm == 'batch':
-#             norm_type: Type[Union[nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]] = Norm[Norm.BATCH, spatial_dims]
-#         else:
-#             norm_type: Type[Union[nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]] = Norm[Norm.INSTANCE, spatial_dims]
-#         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
-#         avgp_type: Type[Union[nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d]] = Pool[
-#             Pool.ADAPTIVEAVG, spatial_dims
-#         ]
-
-#         block_avgpool = get_avgpool()
-#         block_inplanes = [int(x * widen_factor) for x in block_inplanes]
-
-#         self.in_planes = block_inplanes[0]
-#         self.no_max_pool = no_max_pool
-
-#         conv1_kernel_size = ensure_tuple_rep(conv1_t_size, spatial_dims)
-#         conv1_stride = ensure_tuple_rep(conv1_t_stride, spatial_dims)
-
-#         self.conv1 = conv_type(
-#             n_input_channels,
-#             self.in_planes,
-#             kernel_size=conv1_kernel_size,  # type: ignore
-#             stride=conv1_stride,  # type: ignore
-#             padding=tuple(k // 2 for k in conv1_kernel_size),  # type: ignore
-#             bias=False,
-#         )
-#         self.bn1 = norm_type(self.in_planes)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.maxpool = pool_type(kernel_size=3, stride=2, padding=1)
-#         self.layer1 = self._make_layer(block, block_inplanes[0], layers[0], spatial_dims, shortcut_type)
-#         self.layer2 = self._make_layer(block, block_inplanes[1], layers[1], spatial_dims, shortcut_type, stride=2)
-#         self.layer3 = self._make_layer(block, block_inplanes[2], layers[2], spatial_dims, shortcut_type, stride=2)
-#         self.layer4 = self._make_layer(block, block_inplanes[3], layers[3], spatial_dims, shortcut_type, stride=2)
-#         self.avgpool = avgp_type(block_avgpool[spatial_dims])
-#         self.fc = nn.Linear(block_inplanes[3] * block.expansion, num_classes) if feed_forward else None
-
-#         for m in self.modules():
-#             if isinstance(m, conv_type):
-#                 nn.init.kaiming_normal_(torch.as_tensor(m.weight), mode="fan_out", nonlinearity="relu")
-#             elif isinstance(m, norm_type):
-#                 nn.init.constant_(torch.as_tensor(m.weight), 1)
-#                 nn.init.constant_(torch.as_tensor(m.bias), 0)
-#             elif isinstance(m, nn.Linear):
-#                 nn.init.constant_(torch.as_tensor(m.bias), 0)
-
-#     def _downsample_basic_block(self, x: torch.Tensor, planes: int, stride: int, spatial_dims: int = 3) -> torch.Tensor:
-#         out: torch.Tensor = get_pool_layer(("avg", {"kernel_size": 1, "stride": stride}), spatial_dims=spatial_dims)(x)
-#         zero_pads = torch.zeros(out.size(0), planes - out.size(1), *out.shape[2:], dtype=out.dtype, device=out.device)
-#         out = torch.cat([out.data, zero_pads], dim=1)
-#         return out
-
-#     def _make_layer(
-#         self,
-#         block: Type[Union[ResNetBlock, ResNetBottleneck]],
-#         planes: int,
-#         blocks: int,
-#         spatial_dims: int,
-#         shortcut_type: str,
-#         stride: int = 1,
-#     ) -> nn.Sequential:
-
-#         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-#         norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-
-#         downsample: Union[nn.Module, partial, None] = None
-#         if stride != 1 or self.in_planes != planes * block.expansion:
-#             if look_up_option(shortcut_type, {"A", "B"}) == "A":
-#                 downsample = partial(
-#                     self._downsample_basic_block,
-#                     planes=planes * block.expansion,
-#                     stride=stride,
-#                     spatial_dims=spatial_dims,
-#                 )
-#             else:
-#                 downsample = nn.Sequential(
-#                     conv_type(self.in_planes, planes * block.expansion, kernel_size=1, stride=stride),
-#                     norm_type(planes * block.expansion),
-#                 )
-
-#         layers = [
-#             block(
-#                 in_planes=self.in_planes, planes=planes, spatial_dims=spatial_dims, stride=stride, downsample=downsample
-#             )
-#         ]
-
-#         self.in_planes = planes * block.expansion
-#         for _i in range(1, blocks):
-#             layers.append(block(self.in_planes, planes, spatial_dims=spatial_dims))
-
-#         return nn.Sequential(*layers)
-
-#     def forward(self, x: torch.Tensor) -> torch.Tensor:
-#         x = self.conv1(x)
-#         x = self.bn1(x)
-#         x = self.relu(x)
-#         if not self.no_max_pool:
-#             x = self.maxpool(x)
-
-#         x = self.layer1(x)
-#         x = self.layer2(x)
-#         x = self.layer3(x)
-#         x = self.layer4(x)
-
-#         x = self.avgpool(x)
-
-#         x = x.view(x.size(0), -1)
-#         if self.fc is not None:
-#             x = self.fc(x)
-
-#         return x
-    
-# class ResNetFeature(ResNet):
-#     def __init__(
-#             self,
-#             block: Union[Type[Union[ResNetBlock, ResNetBottleneck]], str],
-#             layers: List[int],
-#             block_inplanes: List[int],
-#             spatial_dims: int = 3,
-#             n_input_channels: int = 3,
-#             conv1_t_size: Union[Tuple[int], int] = 7,
-#             conv1_t_stride: Union[Tuple[int], int] = 1,
-#             no_max_pool: bool = False,
-#             shortcut_type: str = "B",
-#             widen_factor: float = 1.0,
-#             num_classes: int = 400,
-#             feed_forward: bool = True,
-#             n_classes: Optional[int] = None,
-#             norm='instance'
-#         ) -> None:
-#         super().__init__(block,layers,block_inplanes,spatial_dims,n_input_channels,conv1_t_size,conv1_t_stride,no_max_pool)
-#         self.spatial_dims= spatial_dims
-    
-#         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
-#         self.mpool1 = pool_type(kernel_size=3, stride=2, ceil_mode=True)
-        
-#     def forward(self, x: torch.Tensor) -> torch.Tensor:
-#         x1 = self.conv1(x)
-#         x1 = self.bn1(x1)
-#         x1 = self.relu(x1)
-#         if not self.no_max_pool:
-#             x1 = self.maxpool(x1)
-#         x2 = self.layer1(x1)        
-#         x2 = self.mpool1(x2)
-#         x3 = self.layer2(x2)
-#         x4 = self.layer3(x3)
-#         x5 = self.layer4(x4)
-#         return x1, x2, x3, x4, x5
-
-
-# Copyright (c) MONAI Consortium
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#     http://www.apache.org/licenses/LICENSE-2.0
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import math
 import operator
 import re
@@ -843,6 +56,7 @@ from typing import List, NamedTuple, Optional, Tuple, Type, Union
 import torch
 from torch import nn
 from torch.utils import model_zoo
+import torch.nn.functional as F 
 
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
 from monai.networks.layers.utils import get_norm_layer
@@ -857,11 +71,11 @@ from monai.utils import deprecated_arg, ensure_tuple_rep
 from monai.networks.nets import ResNet, DenseNet, SENet
 from monai.networks.nets.resnet import ResNetBlock#, ResNetBottleneck
 from monai.networks.nets.senet import SEBottleneck, SEResNetBottleneck
-import torch.nn.functional as F 
+
 from functools import partial
 from typing import Any, Callable, List, Optional, Tuple, Type, Union
-import torch
 from monai.networks.layers.factories import Act, Conv, Dropout, Norm, Pool
+
 
 def get_inplanes():
     return [64, 128, 256, 512]
@@ -914,7 +128,7 @@ class ResNetBlock(nn.Module):
         if module == "none":
             self.module = None
         elif module == 'se':
-            self.module = monai.networks.blocks.ChannelSELayer(spatial_dims,plane)
+            self.module = monai.networks.blocks.ResidualSELayer(spatial_dims,plane)
         elif module =='nlnn':
             norm = 'instance'
             self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
@@ -1053,7 +267,6 @@ class ResNetBottleneck(nn.Module):
             return out, dp
 
 # ResNet = monai.networks.nets.ResNet
-
 class ResNetFeature(ResNet):
     def __init__(
             self,
@@ -1196,6 +409,7 @@ import torch
 from torch import nn
 from torch.utils import model_zoo
 
+from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
 from monai.networks.layers.utils import get_norm_layer
 from monai.utils.module import look_up_option
@@ -2515,7 +1729,6 @@ from monai.utils.module import look_up_option
 #             return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits)
 
 # featureLength = 1024
-from monai.networks.blocks import Convolution
 featureLength = 1280
 
 class UNet(nn.Module):
@@ -2611,7 +1824,7 @@ class UNet(nn.Module):
         self.encModule3 = nn.Identity()
         self.encModule4 = nn.Identity()
         self.encModule5 = nn.Identity()
-        print(f"U-Net encModule is {encModule}")
+        print(f"U-NET encModule is {encModule}")
 
         if 'ACM' in encModule:
             group = 4
@@ -2659,11 +1872,11 @@ class UNet(nn.Module):
         elif 'SE' in encModule:
             # l = int(encModule.split('BOTTOM')[-1])
             # print(f"encModule: {encModule}")
-            self.encModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0])# if l>=5 else nn.Identity()
-            self.encModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])# if l>=4 else nn.Identity()
-            self.encModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])# if l>=3 else nn.Identity()
-            self.encModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])# if l>=2 else nn.Identity()
-            self.encModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])# if l>=1 else nn.Identity()
+            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])# if l>=5 else nn.Identity()
+            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])# if l>=4 else nn.Identity()
+            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])# if l>=3 else nn.Identity()
+            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])# if l>=2 else nn.Identity()
+            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])# if l>=1 else nn.Identity()
         elif 'CBAM' in encModule:
             # l = int(encModule.split('BOTTOM')[-1])
             # print(f"encModule: {encModule}")
@@ -2685,6 +1898,8 @@ class UNet(nn.Module):
         self.mtl = mtl   
         self.mtl_cls = None     
         self.mtl_rec = None     
+        print(f"U-NET mtl is {mtl}")
+
         if mtl == "CLS" or mtl=="ALL":
             self.mtl_cls = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]),nn.AdaptiveAvgPool1d(1),nn.Conv1d(fea[4],1,1))
 
@@ -2711,10 +1926,10 @@ class UNet(nn.Module):
         self.decModule4 = nn.Identity()
 
         if 'SE' in self.decModule:
-            self.decModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
-            self.decModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
-            self.decModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
-            self.decModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])   
+            self.decModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
+            self.decModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.decModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.decModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])   
 
         elif 'NN' in self.decModule:
             self.decModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)

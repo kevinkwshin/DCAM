@@ -377,12 +377,12 @@ class U2NET(nn.Module):
 
         if 'SE' in self.encModule:
             spatial_dims = 1
-            self.encModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0])
-            self.encModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
-            self.encModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
-            self.encModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
-            self.encModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
-            self.encModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])
+            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
+            self.encModule6 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[5])              
         
         elif 'NN' in self.encModule:
             spatial_dims = 1
@@ -449,12 +449,12 @@ class U2NET(nn.Module):
 
         if 'SE' in self.decModule:
             spatial_dims = 1
-            self.decModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
-            self.decModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
-            self.decModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
-            self.decModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
-            self.decModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
-            self.decModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+            self.decModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
+            self.decModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.decModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.decModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+            self.decModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
+            self.decModule6 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[5])              
 
         elif 'NN' in self.decModule:
             spatial_dims = 1
@@ -508,7 +508,7 @@ class U2NET(nn.Module):
             self.decModule6 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
  
         spatial_dims = 1
-        self.lastSelfAttention = monai.networks.blocks.ChannelSELayer(spatial_dims, 12) 
+        self.lastSelfAttention = monai.networks.blocks.ResidualSELayer(spatial_dims, 12) 
         self.temperature = temperature
             
     def forward(self,x):
@@ -682,12 +682,12 @@ class U2NETP(nn.Module):
 
         if 'SE' in self.encModule:
             spatial_dims = 1
-            self.encModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0])
-            self.encModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
-            self.encModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
-            self.encModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
-            self.encModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
-            self.encModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])
+            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
+            self.encModule6 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[5])              
         
         elif 'NN' in self.encModule:
             spatial_dims = 1
@@ -756,12 +756,12 @@ class U2NETP(nn.Module):
 
         if 'SE' in self.decModule:
             spatial_dims = 1
-            self.decModule1 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
-            self.decModule2 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[1])
-            self.decModule3 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[2])
-            self.decModule4 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[3])
-            self.decModule5 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[4])
-            self.decModule6 = monai.networks.blocks.ChannelSELayer(spatial_dims,fea[5])              
+            self.decModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
+            self.decModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.decModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.decModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+            self.decModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
+            self.decModule6 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[5])              
 
         elif 'NN' in self.decModule:
             spatial_dims = 1
@@ -815,7 +815,7 @@ class U2NETP(nn.Module):
             self.decModule6 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
  
         spatial_dims = 1
-        self.lastSelfAttention = monai.networks.blocks.ChannelSELayer(spatial_dims, 12) 
+        self.lastSelfAttention = monai.networks.blocks.ResidualSELayer(spatial_dims, 12) 
         self.temperature = temperature
 
 

@@ -23,27 +23,29 @@ import models.nets as nets
 # run_command('nvcc -V')
 # run_command('nvidia-smi')
 # run_command('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
+
 device = get_device()
 NUM_WORKERS = os.cpu_count()
-print("Number of workers:", NUM_WORKERS)
-print('cuda.is_available', torch.cuda.is_available())
+# print("Number of workers:", NUM_WORKERS)
+# print('cuda.is_available', torch.cuda.is_available())
 # print_config()
         
 config_defaults = dict(
-    dataSeed = 1,
-    srTarget = 250,
-    featureLength = 1280,
-    sampler = True, # True, False
-    inChannels = 1,
-    outChannels = 2,
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
     modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     encModule = "SE", # "SE_BOTTOM5"
     decModule = "SE", # "SE_BOTTOM5"
     mtl = 'ALL', # 'NONE', 'CLS, 'REC', 'ALL'
     
-    project = 'PVC_NET',  # this is cutoff line of path_logRoot ##############################
-     
+    project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
+
+    dataSeed = 1, # split seed
+    srTarget = 250, # 
+    featureLength = 1280,
+    sampler = True, # True, False
+    inChannels = 1,
+    outChannels = 2,
+
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
@@ -64,7 +66,6 @@ config_defaults = dict(
 def train():
     wandb.init(config=config_defaults)
     hyperparameters = dict(wandb.config)
-    
     set_seed()
     model = PVC_NET(hyperparameters)
     
@@ -129,7 +130,7 @@ def train():
                         # deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.6, swa_lrs=1e-4)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.4, swa_lrs=1e-4)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -320,16 +321,16 @@ class PVC_NET(pl.LightningModule):
                 yhat, yhat_cls = yhat
                 loss_objective = self.lossFn(yhat,y) 
                 loss_auxilary  =  self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
-                loss = loss_objective + loss_auxilary
-                print('main', loss_objective, 'cls', loss_auxilary)
+                loss = loss_objective + .5 * loss_auxilary
+                # print('main', loss_objective, 'cls', loss_auxilary)
                 return loss
 
             elif self.hyperparameters['mtl'] == 'REC':
                 yhat, yhat_rec = yhat
                 loss_objective = self.lossFn(yhat,y)
                 loss_auxilary  = F.mse_loss(yhat_rec, x)
-                loss = loss_objective + loss_auxilary
-                print('main',loss_objective, 'rec',loss_auxilary)
+                loss = loss_objective + .5 * loss_auxilary
+                # print('main',loss_objective, 'rec',loss_auxilary)
                 return loss
             
             elif self.hyperparameters['mtl'] == 'ALL':
@@ -337,8 +338,8 @@ class PVC_NET(pl.LightningModule):
                 loss_objective = self.lossFn(yhat,y)
                 loss_auxilary_cls  =  self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
                 loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
-                loss = loss_objective + loss_auxilary_cls + loss_auxilary_rec
-                print('main',loss_objective, 'cls', loss_auxilary_cls, 'rec', loss_auxilary_rec)
+                loss = loss_objective + .5 * loss_auxilary_cls + .5 * loss_auxilary_rec
+                # print('main',loss_objective, 'cls', loss_auxilary_cls, 'rec', loss_auxilary_rec)
                 return loss
 
         else:
@@ -556,7 +557,7 @@ class PVC_NET(pl.LightningModule):
 
             auc = sklearn.metrics.roc_auc_score(ys, yhats)
             ap  = sklearn.metrics.average_precision_score(ys, yhats)
-            # self.youden_index = find_maxF1(ys, yhats)
+            self.youden_index = find_maxF1(ys, yhats)
             
             negativeIdx = np.where(ys == 0)
             positiveIdx = np.where(ys != 0)

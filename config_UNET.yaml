@@ -1,12 +1,12 @@
 program: train.py
-name :  20230208_LOSS # sweep run name!!
+name :  20230211_test # sweep run name!!
 method: grid # bayes, grid
 metric:
     name: testMIT_AUPRC_Class1Raw
     goal: maximize
 parameters:
-    # modelName:
-    #     values: ['efficientnet-b0','efficientnet-b1','efficientnet-b2']
+    modelName:
+        values: ['resnet34','efficientnet-b0'] #'U2NET', 'U2NETP', 'efficientnet-b1','efficientnet-b2'
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -25,7 +25,12 @@ parameters:
     #     values: ['NONE','TYPE1','TYPE2']
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
-    skipModule:
-        values: ['SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM_0_BOTTOM5', 'MHA_BOTTOM5'] #'NONE', 
     # segheadModule:
     #     values: ['NONE','SE']
+    encModule:
+        values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
+    decModule:
+        values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
+    mtl:
+        values: ['CLS', 'REC', 'ALL', 'NONE']
+    

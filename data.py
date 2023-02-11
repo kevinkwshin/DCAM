@@ -1,6 +1,8 @@
 from data import *
 from utils import *
 
+import neurokit2 as nk
+
 # train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 # valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
@@ -15,6 +17,147 @@ NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy'
 STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
 SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
 # AMCREAL_data = np.load('dataset/AMCREAL_testSeg.npy',allow_pickle=True)
+
+
+
+
+class MIT_DATASET():
+    def __init__(self, data, featureLength, srTarget, classes=4, normalize='instance', augmentation="NONE", random_crop=False):
+        self.data = data
+        self.classes = classes
+        self.augmentation = augmentation
+        if augmentation == "NONE":
+            self.augmentation = False
+        elif augmentation =='NEUROKIT':
+            self.augmentation=augment_neurokit
+        elif augmentation =='NEUROKIT2':
+            self.augmentation=augment_neurokit2
+        elif augmentation =='AUDIOMENTATION':
+            self.augmentation=augment_audiomentation
+
+        self.random_crop = random_crop
+        self.srTarget = srTarget
+        self.featureLength = featureLength
+        self.normalize = normalize
+        self.mean, self.std = EDA_zscore(data)
+        # print('mean', self.mean, 'std', self.std)
+        
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        pid = self.data[idx]['pid']
+        signal = self.data[idx]['signal']
+        srOriginal = self.data[idx]['sr']
+        time = self.data[idx]['time']
+        idx_Normal = self.data[idx]['idx_Normal']
+        idx_PVC = self.data[idx]['idx_PVC']
+        idx_AFIB = self.data[idx]['idx_Afib']
+        idx_Others = self.data[idx]['idx_Others']
+        idx_Artifact = self.data[idx]['idx_Artifact']
+        dataSource = self.data[idx]['dataSource']
+        
+        y_Normal_seg = np.zeros_like(signal)
+        y_PVC_seg = np.zeros_like(signal)
+        y_AFIB_seg = np.zeros_like(signal)
+        y_Others_seg = np.zeros_like(signal)
+        
+        interval = int(srOriginal * 0.1) # this is to set peak interval
+        
+        # grab annotations
+        for idx_ in idx_Normal:  
+            y_Normal_seg[idx_-interval:idx_+interval] = 1
+        for idx_ in idx_PVC:
+            y_PVC_seg[idx_-interval:idx_+interval] = 1
+        for idx_ in idx_AFIB:
+            y_AFIB_seg[idx_-interval:idx_+interval] = 1
+        for idx_ in idx_Others:
+            y_Others_seg[idx_-interval:idx_+interval] = 1
+    
+        # resampling
+        if self.augmentation:
+            srTarget = np.random.randint(int(self.srTarget*0.97),int(self.srTarget*1.03)) # time stretching, you need to carefully check here
+        else: 
+            srTarget = self.srTarget
+            
+        signal = lb.resample(signal, orig_sr=srOriginal, target_sr=srTarget) if srTarget != srOriginal else signal # resample
+        y_Normal_seg = scipy.ndimage.zoom(y_Normal_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_Normal_seg # resample
+        y_PVC_seg = scipy.ndimage.zoom(y_PVC_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_PVC_seg # resample
+        y_AFIB_seg = scipy.ndimage.zoom(y_AFIB_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_AFIB_seg # resample
+        y_Others_seg = scipy.ndimage.zoom(y_Others_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_Others_seg # resample
+        
+        if self.random_crop:
+            if int(len(signal)) > self.featureLength:  # randomly crop 
+                randnum = np.random.randint(0,len(signal)-self.featureLength)
+                start = randnum if self.random_crop else 0
+                end = start+self.featureLength
+            elif int(len(signal)) == self.featureLength:
+                start = 0
+                end = 0 + self.featureLength
+            else:
+                print('too short data:: need check sampling rate or featureLength', int(len(signal)),self.featureLength)
+                
+            signal = signal[start:end]
+            y_Normal_seg = y_Normal_seg[start:end]
+            y_PVC_seg = y_PVC_seg[start:end]
+            y_AFIB_seg = y_AFIB_seg[start:end]
+            y_Others_seg = y_Others_seg[start:end]
+        # print('after crop',signal.shape)
+
+        y_peak_seg = y_Normal_seg + y_PVC_seg + y_Others_seg + y_AFIB_seg # R-peak
+        y_peak_seg[y_peak_seg!=0] =1
+
+        if self.classes == 1:
+            y_seg = np.expand_dims(y_PVC_seg,0) # 1 class
+        elif self.classes == 2:
+            y_seg = np.stack((y_peak_seg, y_PVC_seg), axis=0).astype(float) # 2 multi class
+        elif self.classes == 3:
+            y_Others_seg = y_Others_seg + y_AFIB_seg # non PVC
+            y_Others_seg[y_Others_seg!=0] =1
+            y_seg = np.stack((y_peak_seg, y_PVC_seg, y_Others_seg), axis=0).astype(float) # 3 multi class    
+            # y_seg = np.stack((y_peak_seg, y_PVC_seg, y_AFIB_seg), axis=0).astype(float) # 3 multi class    
+        elif self.classes == 4:
+            y_seg = np.stack((y_peak_seg, y_PVC_seg, y_AFIB_seg, y_Others_seg), axis=0).astype(float) # 4 multi class
+        
+        y_Normal = np.array([0]) if 1 in y_Normal_seg else np.array([1]) # classification task
+        y_Others = np.array([0]) if 1 in y_Others_seg else np.array([1]) # classification task
+        y_PVC    = np.array([0]) if 1 in y_PVC_seg else np.array([1]) # classification task
+        y_AFIB   = np.array([0]) if 1 in y_AFIB_seg else np.array([1]) # classification task
+        
+        signal_original = signal.copy()
+        signal_original = np.expand_dims(signal_original,0)
+        
+        # augmentation
+        signal = signal if not self.augmentation else self.augmentation(signal, srTarget)
+        
+        signal = remove_baseline_wander(signal,srTarget)
+        signal = np.expand_dims(signal,0)
+        
+        if self.normalize =='minmaxI':
+            signal = (signal - np.min(signal)) / (np.max(signal) - np.min(signal)) # normalize  
+        elif self.normalize =='zscoreI':
+            signal = zscore(signal)
+        elif self.normalize =='zscoreO':
+            signal = zscore(signal, self.mean, self.std)
+            
+        signal = torch.from_numpy(signal.copy()).float()
+        
+        return {'dataSource':dataSource,
+                'pid':pid,
+                'srOriginal': srOriginal,
+                'srTarget':srTarget,
+                'time':time,
+                'fname':f'{pid}_time{time}',
+                'signal':signal,
+                'signal_original':signal_original,
+                'y_AFIB':y_AFIB, 
+                'y_PVC':y_PVC,
+                'y_AFIB_seg':y_AFIB_seg,
+                'y_PVC_seg':y_PVC_seg, 
+                'y_Normal_seg':y_Normal_seg,
+                'y_Others_seg':y_Others_seg, 
+                'y_seg':y_seg,}
+                
 
 def add_datainfo(data, info_string):
     new_data = []
@@ -429,7 +572,6 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
                 label.append(1)
             else:
                 label.append(0)
-            # 총 5개    
             ########## customize here ###############
         label = torch.tensor(label)
         
@@ -439,7 +581,6 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
 
         label_to_count = df["label"].value_counts()
         
-        # weights = 1.0 / np.sqrt(np.sqrt(label_to_count[df["label"]]))
         # weights = 1.0 / np.sqrt(label_to_count[df["label"]]) 
         weights = 1.0 / label_to_count[df["label"]] # almost equally
         # weights = 1.0 / (label_to_count[df["label"]])**2 # slightly weighted to 1
@@ -476,7 +617,6 @@ augment_audiomentation = Compose([
     ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=30, p=p),
 ])
 
-import neurokit2 as nk
 def augment_neurokit(ecg_signal, sr):
     noise_shape = ['gaussian', 'laplace']
     n_noise_shape = np.random.randint(0,2)
@@ -545,141 +685,3 @@ def augment_neurokit2(sig, sr, p=0.3):
 
     else:
         return sig
-
-class MIT_DATASET():
-    def __init__(self, data, featureLength, srTarget, classes=4, normalize='instance', augmentation="NONE", random_crop=False):
-        self.data = data
-        self.classes = classes
-        self.augmentation = augmentation
-        if augmentation == "NONE":
-            self.augmentation = False
-        elif augmentation =='NEUROKIT':
-            self.augmentation=augment_neurokit
-        elif augmentation =='NEUROKIT2':
-            self.augmentation=augment_neurokit2
-        elif augmentation =='AUDIOMENTATION':
-            self.augmentation=augment_audiomentation
-
-        self.random_crop = random_crop
-        self.srTarget = srTarget
-        self.featureLength = featureLength
-        self.normalize = normalize
-        self.mean, self.std = EDA_zscore(data)
-        # print('mean', self.mean, 'std', self.std)
-        
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, idx):
-        pid = self.data[idx]['pid']
-        signal = self.data[idx]['signal']
-        srOriginal = self.data[idx]['sr']
-        time = self.data[idx]['time']
-        idx_Normal = self.data[idx]['idx_Normal']
-        idx_PVC = self.data[idx]['idx_PVC']
-        idx_AFIB = self.data[idx]['idx_Afib']
-        idx_Others = self.data[idx]['idx_Others']
-        idx_Artifact = self.data[idx]['idx_Artifact']
-        dataSource = self.data[idx]['dataSource']
-        
-        y_Normal_seg = np.zeros_like(signal)
-        y_PVC_seg = np.zeros_like(signal)
-        y_AFIB_seg = np.zeros_like(signal)
-        y_Others_seg = np.zeros_like(signal)
-        
-        interval = int(srOriginal * 0.1) # this is to set peak interval
-        
-        # grab annotations
-        for idx_ in idx_Normal:  
-            y_Normal_seg[idx_-interval:idx_+interval] = 1
-        for idx_ in idx_PVC:
-            y_PVC_seg[idx_-interval:idx_+interval] = 1
-        for idx_ in idx_AFIB:
-            y_AFIB_seg[idx_-interval:idx_+interval] = 1
-        for idx_ in idx_Others:
-            y_Others_seg[idx_-interval:idx_+interval] = 1
-    
-        # resampling
-        if self.augmentation:
-            srTarget = np.random.randint(int(self.srTarget*0.97),int(self.srTarget*1.03)) # time stretching, you need to carefully check here
-        else: 
-            srTarget = self.srTarget
-            
-        signal = lb.resample(signal, orig_sr=srOriginal, target_sr=srTarget) if srTarget != srOriginal else signal # resample
-        y_Normal_seg = scipy.ndimage.zoom(y_Normal_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_Normal_seg # resample
-        y_PVC_seg = scipy.ndimage.zoom(y_PVC_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_PVC_seg # resample
-        y_AFIB_seg = scipy.ndimage.zoom(y_AFIB_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_AFIB_seg # resample
-        y_Others_seg = scipy.ndimage.zoom(y_Others_seg, srTarget/srOriginal, order=0, mode='nearest',) if srTarget != srOriginal else y_Others_seg # resample
-        
-        if self.random_crop:
-            if int(len(signal)) > self.featureLength:  # randomly crop 
-                randnum = np.random.randint(0,len(signal)-self.featureLength)
-                start = randnum if self.random_crop else 0
-                end = start+self.featureLength
-            elif int(len(signal)) == self.featureLength:
-                start = 0
-                end = 0 + self.featureLength
-            else:
-                print('too short data:: need check sampling rate or featureLength', int(len(signal)),self.featureLength)
-                
-            signal = signal[start:end]
-            y_Normal_seg = y_Normal_seg[start:end]
-            y_PVC_seg = y_PVC_seg[start:end]
-            y_AFIB_seg = y_AFIB_seg[start:end]
-            y_Others_seg = y_Others_seg[start:end]
-        # print('after crop',signal.shape)
-
-        y_peak_seg = y_Normal_seg + y_PVC_seg + y_Others_seg + y_AFIB_seg # R-peak
-        y_peak_seg[y_peak_seg!=0] =1
-
-        if self.classes == 1:
-            y_seg = np.expand_dims(y_PVC_seg,0) # 1 class
-        elif self.classes == 2:
-            y_seg = np.stack((y_peak_seg, y_PVC_seg), axis=0).astype(float) # 2 multi class
-        elif self.classes == 3:
-            # y_Others_seg = y_Others_seg + y_AFIB_seg # non PVC
-            # y_Others_seg[y_Others_seg!=0] =1
-            # y_seg = np.stack((y_peak_seg, y_PVC_seg, y_Others_seg), axis=0).astype(float) # 3 multi class    
-            y_seg = np.stack((y_peak_seg, y_PVC_seg, y_AFIB_seg), axis=0).astype(float) # 3 multi class    
-        elif self.classes == 4:
-            y_seg = np.stack((y_peak_seg, y_PVC_seg, y_AFIB_seg, y_Others_seg), axis=0).astype(float) # 4 multi class
-        
-        y_Normal = np.array([0]) if 1 in y_Normal_seg else np.array([1]) # classification task
-        y_Others = np.array([0]) if 1 in y_Others_seg else np.array([1]) # classification task
-        y_PVC    = np.array([0]) if 1 in y_PVC_seg else np.array([1]) # classification task
-        y_AFIB   = np.array([0]) if 1 in y_AFIB_seg else np.array([1]) # classification task
-        
-        signal_original = signal.copy()
-        signal_original = np.expand_dims(signal_original,0)
-        
-        # augmentation
-        signal = signal if not self.augmentation else self.augmentation(signal, srTarget)
-        
-        signal = remove_baseline_wander(signal,srTarget)
-        signal = np.expand_dims(signal,0)
-        
-        if self.normalize =='minmaxI':
-            signal = (signal - np.min(signal)) / (np.max(signal) - np.min(signal)) # normalize  
-        elif self.normalize =='zscoreI':
-            signal = zscore(signal)
-        elif self.normalize =='zscoreO':
-            signal = zscore(signal, self.mean, self.std)
-            
-        # signal = torch.tensor(signal).float() # shape should be Channel X Signal
-        signal = torch.from_numpy(signal.copy()).float()
-        
-        return {'dataSource':dataSource,
-                'pid':pid,
-                'srOriginal': srOriginal,
-                'srTarget':srTarget,
-                'time':time,
-                'fname':f'{pid}_time{time}',
-                'signal':signal,
-                'signal_original':signal_original,
-                'y_AFIB':y_AFIB, 
-                'y_PVC':y_PVC,
-                'y_AFIB_seg':y_AFIB_seg,
-                'y_PVC_seg':y_PVC_seg, 
-                'y_Normal_seg':y_Normal_seg,
-                'y_Others_seg':y_Others_seg, 
-                'y_seg':y_seg,}
