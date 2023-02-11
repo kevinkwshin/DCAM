@@ -37,15 +37,16 @@ config_defaults = dict(
     inChannels = 1,
     outChannels = 2,
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    encModule = "SE", # "SE_BOTTOM5"
+    decModule = "SE", # "SE_BOTTOM5"
+    mtl = 'ALL', # 'NONE', 'CLS, 'REC', 'ALL'
     
     project = 'PVC_NET',  # this is cutoff line of path_logRoot ##############################
      
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
-    encModule = "ACM_0.01", # "SE_BOTTOM5"
-    decModule = "ACM_0.01", # "SE_BOTTOM5"
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
 
@@ -58,7 +59,6 @@ config_defaults = dict(
     # skipASPP = "NONE",
     lossFn = 'BCE',
     se = 'se',
-    mtl = 'NONE'
 )
 
 def train():
@@ -273,7 +273,7 @@ class PVC_NET(pl.LightningModule):
                                   encModule = hyperparameters['encModule'],
                                   decModule = hyperparameters['decModule'],
                                   dropout = hyperparameters['dropout'],
-                                #   temperature=.5,
+                                  temperature=.5,
                                   norm = hyperparameters['norm'],
                                  )
             
@@ -295,31 +295,52 @@ class PVC_NET(pl.LightningModule):
 
         self.save_hyperparameters()
         
-    def compute_loss(self, yhat, y):
+    def compute_loss(self, yhat, y, x):
         if isinstance(yhat,list) or isinstance(yhat,tuple):
 
             # yhat, loss_dp = yhat # ACM loss
             # loss = self.lossFn(yhat,y) # ACM loss
-            # loss = loss + loss_dp * 0.1# ACM loss
+            # loss = loss + loss_dp
             # print('dp')
 
-            # yhat, yhat_mtl = yhat
-            # loss = self.lossFn(yhat,y) + self.lossFn(yhat_mtl.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
-            # loss = F.binary_cross_entropy(yhat,y) + F.binary_cross_entropy(yhat_mtl, F.adaptive_max_pool1d(y,1))
+            if 'U2' in self.hyperparameters['modelName']:
+                d0, d1, d2, d3, d4, d5, d6 = yhat
+                loss0 = self.lossFn(d0,y)
+                loss1 = self.lossFn(d1,y)
+                loss2 = self.lossFn(d2,y)
+                loss3 = self.lossFn(d3,y)
+                loss4 = self.lossFn(d4,y)
+                loss5 = self.lossFn(d5,y)
+                loss6 = self.lossFn(d6,y)
 
-            d0, d1, d2, d3, d4, d5, d6 = yhat
-            loss0 = self.lossFn(d0,y)
-            loss1 = self.lossFn(d1,y)
-            loss2 = self.lossFn(d2,y)
-            loss3 = self.lossFn(d3,y)
-            loss4 = self.lossFn(d4,y)
-            loss5 = self.lossFn(d5,y)
-            loss6 = self.lossFn(d6,y)
+                loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+                return loss
 
-            loss = loss0 + loss1 + loss2 + loss3 + loss4 + loss5 + loss6
-            return loss
+            elif self.hyperparameters['mtl'] == 'CLS':
+                yhat, yhat_cls = yhat
+                loss_objective = self.lossFn(yhat,y) 
+                loss_auxilary  =  self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+                loss = loss_objective + loss_auxilary
+                print('main', loss_objective, 'cls', loss_auxilary)
+                return loss
 
+            elif self.hyperparameters['mtl'] == 'REC':
+                yhat, yhat_rec = yhat
+                loss_objective = self.lossFn(yhat,y)
+                loss_auxilary  = F.mse_loss(yhat_rec, x)
+                loss = loss_objective + loss_auxilary
+                print('main',loss_objective, 'rec',loss_auxilary)
+                return loss
             
+            elif self.hyperparameters['mtl'] == 'ALL':
+                yhat, yhat_cls, yhat_rec = yhat
+                loss_objective = self.lossFn(yhat,y)
+                loss_auxilary_cls  =  self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+                loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
+                loss = loss_objective + loss_auxilary_cls + loss_auxilary_rec
+                print('main',loss_objective, 'cls', loss_auxilary_cls, 'rec', loss_auxilary_rec)
+                return loss
+
         else:
             loss = self.lossFn(yhat, y)
         return loss
@@ -358,7 +379,7 @@ class PVC_NET(pl.LightningModule):
         time = batch['time']
         
         yhat = self.sliding_window_inference(x) if x.shape[-1] > self.featureLength else self.forward(x)
-        loss = self.compute_loss(yhat, y)
+        loss = self.compute_loss(yhat, y, x)
 
         if isinstance(yhat,tuple) or isinstance(yhat,list): # in case multi output model such as U2NET while training
             yhat = yhat[0]

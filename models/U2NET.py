@@ -816,6 +816,7 @@ class U2NETP(nn.Module):
  
         spatial_dims = 1
         self.lastSelfAttention = monai.networks.blocks.ChannelSELayer(spatial_dims, 12) 
+        self.temperature = temperature
 
 
     def forward(self,x):
@@ -998,7 +999,9 @@ class U2NETP(nn.Module):
         # d0,_ = self.lastSelfAttention(d0,d0,d0)
         d0 = self.outconv(d0)
 
-        return torch.sigmoid(d0), torch.sigmoid(d1), torch.sigmoid(d2), torch.sigmoid(d3), torch.sigmoid(d4), torch.sigmoid(d5), torch.sigmoid(d6)
+        # return torch.sigmoid(d0), torch.sigmoid(d1), torch.sigmoid(d2), torch.sigmoid(d3), torch.sigmoid(d4), torch.sigmoid(d5), torch.sigmoid(d6)
+        return torch.sigmoid(d0/self.temperature), torch.sigmoid(d1/self.temperature), torch.sigmoid(d2/self.temperature), torch.sigmoid(d3/self.temperature), torch.sigmoid(d4/self.temperature), torch.sigmoid(d5/self.temperature), torch.sigmoid(d6/self.temperature)
+
 
 bce_loss = nn.BCELoss()
 
