@@ -3,8 +3,8 @@ from utils import *
 
 import neurokit2 as nk
 
-# train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
-# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
 
 AMC_data  = np.load('dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
@@ -17,9 +17,6 @@ NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy'
 STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
 SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
 # AMCREAL_data = np.load('dataset/AMCREAL_testSeg.npy',allow_pickle=True)
-
-
-
 
 class MIT_DATASET():
     def __init__(self, data, featureLength, srTarget, classes=4, normalize='instance', augmentation="NONE", random_crop=False):
@@ -166,8 +163,12 @@ def add_datainfo(data, info_string):
         new_data.append(d)
     return np.array(new_data)
 
-def seed_MITBIH(files, seed):
-    train_files, valid_files = sklearn.model_selection.train_test_split(files, test_size=.2, random_state= seed)
+def seed_MITBIH(files, seed, show=False):
+    files.remove('dataset/MIT-BIH_NPY/train/118.npy')
+    files.remove('dataset/MIT-BIH_NPY/train/119.npy')
+    train_files, valid_files = sklearn.model_selection.train_test_split(files, test_size=.1, random_state= seed)
+    valid_files.append('dataset/MIT-BIH_NPY/train/118.npy')
+    valid_files.append('dataset/MIT-BIH_NPY/train/119.npy')
 
     train_seg = []
     for f in train_files:
@@ -179,14 +180,15 @@ def seed_MITBIH(files, seed):
         data = np.load(f,allow_pickle=True)
         valid_seg.extend(data)
 
-    print('seed:',seed)
+    # print('seed:',seed)
+    print(f'seed:{seed}, train_files:{train_files}, valid_files:{valid_files}') if show else 0
     add_datainfo(train_seg,1)
     add_datainfo(valid_seg,2)
     return train_seg, valid_seg
 
-def FOLD5_MITBIH(files, seed):
+def FOLD5_MITBIH(files, seed, show=False):
     files = np.array(files)
-    kf = sklearn.model_selection.KFold(5, shuffle=True, random_state=0)
+    kf = sklearn.model_selection.KFold(5, shuffle=True, random_state=seed)
     FOLD = []
     
     for train_index, test_index in kf.split(files):
@@ -194,7 +196,7 @@ def FOLD5_MITBIH(files, seed):
         test_files = files[test_index]
         FOLD.append([train_files,test_files])
 
-    train_files, valid_files=FOLD[seed]
+    train_files, valid_files=FOLD[0]
 
     train_seg = []
     for f in train_files:
@@ -206,7 +208,7 @@ def FOLD5_MITBIH(files, seed):
         data = np.load(f,allow_pickle=True)
         valid_seg.extend(data)
 
-    # print(f'seed:{seed}, train_files:{train_files}, valid_files:{valid_files}')
+    print(f'seed:{seed}, train_files:{train_files}, valid_files:{valid_files}') if show else 0
     add_datainfo(train_seg,1)
     add_datainfo(valid_seg,2)
     return train_seg, valid_seg

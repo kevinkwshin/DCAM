@@ -71,3 +71,22 @@ class BCEFocalLoss(nn.Module):
         focal_loss = self.alpha * (1-BCE_EXP)**self.gamma * BCE
                        
         return focal_loss + BCE
+
+
+class Consistency_Loss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.L2_loss  = torch.nn.MSELoss()
+        self.maxpool  = torch.nn.MaxPool1d(kernel_size=16, stride=16, padding=0)
+        self.avgpool  = torch.nn.AvgPool1d(kernel_size=16, stride=16, padding=0)
+
+    def forward(self, y_cls, y_seg):
+        y_cls = torch.sigmoid(y_cls)  # (B, C)
+        y_seg = torch.sigmoid(y_seg)  # (B, C, H, W)
+
+        # We have to adjust the segmentation pred depending on classification pred
+        # ResNet50 uses four 2x2 maxpools and 1 global avgpool to extract classification pred. that is the same as 16x16 maxpool and 16x16 avgpool
+        y_seg = self.avgpool(self.maxpool(y_seg)).flatten(start_dim=1, end_dim=-1)  # (B, C)
+        loss  = self.L2_loss(y_seg, y_cls)
+
+        return loss

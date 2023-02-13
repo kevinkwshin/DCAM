@@ -1,12 +1,14 @@
 program: train.py
-name :  20230206_test # sweep run name!!
-method: bayes
+name :  20230211_test # sweep run name!!
+method: grid # bayes, grid
 metric:
     name: testMIT_AUPRC_Class1Raw
     goal: maximize
 parameters:
-    modelName:
-        values: ['efficientnet-b0','efficientnet-b1','efficientnet-b2','efficientnet-b3', 'U2NET']
+    dataSeed:
+        values: [0,1,2,3,4,5,6,7,8]
+    # modelName:
+    #     values: ['resnet34','resnet50'] #'U2NET', 'U2NETP', ,'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -15,15 +17,22 @@ parameters:
     #     values: ['zscoreI', 'zscoreO', 'minmaxI']
     # se_module:
     #     values: ['se','acm','nlnn','deeprft','cbam']
+    # sampler:
+    #     values: [True, False]
     # lossFn:
-    #     values: ['BCE','FOCAL','BCEFOCAL']
+    #     values: ['BCE', 'FOCAL', 'BCEFOCAL']
     # upsample:
     #     values: ['deconv', 'pixelshuffle']
     # supervision: 
     #     values: ['NONE','TYPE1','TYPE2']
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
-    # skipModule:
-    #     values: ['NONE', 'SE_BOTTOM5', 'DEEPRFT_BOTTOM5', 'ACM4_0_BOTTOM5', 'MHA_BOTTOM5']
     # segheadModule:
     #     values: ['NONE','SE']
+    # encModule:
+    #     values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
+    # decModule:
+    #     values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
+    # mtl:
+    #     values: ['CLS', 'REC', 'ALL_max','ALL_avg', 'NONE']
+    

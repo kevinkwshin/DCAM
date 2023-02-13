@@ -10,6 +10,7 @@ os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
 # os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
 gpus= "0,1,2,3"
+# gpus= "0,1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = gpus
 os.environ["WANDB_API_KEY"] = '6cd6a2f58c8f4625faaea5c73fe110edab2be208'
@@ -32,10 +33,10 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     encModule = "SE", # "SE_BOTTOM5"
     decModule = "SE", # "SE_BOTTOM5"
-    mtl = 'ALL', # 'NONE', 'CLS, 'REC', 'ALL'
+    mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     
     project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -52,15 +53,14 @@ config_defaults = dict(
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = '20230207_BASE',
+    path_logRoot = '20230212_DATASEED',
     spatial_dims = 1,
     learning_rate = 1e-3,
     batch_size = 256, # 256
     dropout = 0.01,
     thresholdRPeak = 0.7,
-    # skipASPP = "NONE",
     lossFn = 'BCE',
-    se = 'se',
+    # se = 'se',
 )
 
 def train():
@@ -74,9 +74,9 @@ def train():
     featureLength = model.hyperparameters['featureLength']   
     dataNorm = model.hyperparameters['dataNorm']
 
-    train_files = glob('dataset/MIT-BIH_NPY/train/*.npy')
-    # train_data, valid_data = seed_MITBIH(train_files, model.hyperparameters['dataSeed'])
-    train_data, valid_data = FOLD5_MITBIH(train_files, model.hyperparameters['dataSeed'])
+    # train_files = glob('dataset/MIT-BIH_NPY/train/*.npy')
+    # # train_data, valid_data = seed_MITBIH(train_files, model.hyperparameters['dataSeed'])
+    # train_data, valid_data = FOLD5_MITBIH(train_files, model.hyperparameters['dataSeed'])
     
     train_dataset    = MIT_DATASET(train_data,featureLength,srTarget, classes, dataNorm, model.hyperparameters['trainaug'], True)
     valid_dataset    = MIT_DATASET(valid_data,featureLength,srTarget, classes, dataNorm, False)
@@ -111,7 +111,6 @@ def train():
     # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
 
-    
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch')
@@ -171,7 +170,7 @@ def test(path, testPlot=False):
     SVDB_dataset = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
     # AMCREAL_dataset = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
 
-    batch_size = 128
+    batch_size = model.hyperparameters['batch_size']//4
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
     CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=2, shuffle = False)
@@ -252,7 +251,7 @@ class PVC_NET(pl.LightningModule):
                             encModule = hyperparameters['encModule'],
                             decModule = hyperparameters['decModule'],
                             segheadModule = hyperparameters['segheadModule'],
-                            se_module= hyperparameters['se'],
+                            # se_module= hyperparameters['se'],
                             mtl=hyperparameters['mtl'],
                            )
             
@@ -333,18 +332,35 @@ class PVC_NET(pl.LightningModule):
                 # print('main',loss_objective, 'rec',loss_auxilary)
                 return loss
             
-            elif self.hyperparameters['mtl'] == 'ALL':
+            elif self.hyperparameters['mtl'] == 'ALL_max':
                 yhat, yhat_cls, yhat_rec = yhat
                 loss_objective = self.lossFn(yhat,y)
-                loss_auxilary_cls  =  self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+                loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+                # loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_avg_pool1d(y,1)[:,1].squeeze())
                 loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
-                loss = loss_objective + .5 * loss_auxilary_cls + .5 * loss_auxilary_rec
+                loss_auxilary_con  = F.mse_loss(yhat_cls.squeeze(), F.adaptive_max_pool1d(yhat,1)[:,1].squeeze())
+                loss = loss_objective + .5 * loss_auxilary_cls + .5 * loss_auxilary_rec + .2 * loss_auxilary_con
+                # print('max', F.adaptive_max_pool1d(y,1)[:,1].squeeze().cpu().detach().numpy())
+                # print('avg', F.adaptive_avg_pool1d(y,1)[:,1].squeeze().cpu().detach().numpy())
+                # print('main',loss_objective, 'cls', loss_auxilary_cls, 'rec', loss_auxilary_rec)
+                return loss
+            
+            elif self.hyperparameters['mtl'] == 'ALL_avg':
+                yhat, yhat_cls, yhat_rec = yhat
+                loss_objective = self.lossFn(yhat,y)
+                # loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
+                loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_avg_pool1d(y,1)[:,1].squeeze())
+                loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
+                loss_auxilary_con  = F.mse_loss(yhat_cls.squeeze(), F.adaptive_avg_pool1d(yhat,1)[:,1].squeeze())
+                loss = loss_objective + .5 * loss_auxilary_cls + .5 * loss_auxilary_rec + .2 * loss_auxilary_con
+                # print('max', F.adaptive_max_pool1d(y,1)[:,1].squeeze().cpu().detach().numpy())
+                # print('avg', F.adaptive_avg_pool1d(y,1)[:,1].squeeze().cpu().detach().numpy())
                 # print('main',loss_objective, 'cls', loss_auxilary_cls, 'rec', loss_auxilary_rec)
                 return loss
 
         else:
             loss = self.lossFn(yhat, y)
-        return loss
+            return loss
     
     def forward(self, x):
         result = self.net(x)

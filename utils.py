@@ -141,7 +141,6 @@ def Youden_index(y_true, y_score):
 def get_Binaryindex(arr):
     """
     from QRS, 
-    
     """
     idxs = []
     arr_ = arr.copy()
