@@ -3,5 +3,4 @@ lightning_logs/*
 wandb/*
 
 @eaDir/*
-20230207_BASE/*
-20230211_MTL/*
+20230213_MTL/*

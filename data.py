@@ -223,8 +223,8 @@ def FOLD5_MITBIH(files, seed, show=False):
 # add_datainfo(FANTASIA_data,'FANTASIA')
 # add_datainfo(AMCREAL_data,'AMCREAL')
 
-# add_datainfo(train_data,1)
-# add_datainfo(valid_data,2)
+add_datainfo(train_data,1)
+add_datainfo(valid_data,2)
 add_datainfo(test_data,3)
 
 add_datainfo(AMC_data,11)

@@ -33,10 +33,10 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     encModule = "SE", # "SE_BOTTOM5"
     decModule = "SE", # "SE_BOTTOM5"
-    mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
+    mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     
     project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -53,7 +53,7 @@ config_defaults = dict(
     segheadModule = "SE",
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = '20230212_DATASEED',
+    path_logRoot = '20230213_MTL',
     spatial_dims = 1,
     learning_rate = 1e-3,
     batch_size = 256, # 256
@@ -226,7 +226,7 @@ class PVC_NET(pl.LightningModule):
         self.thresholdRPeak = self.hyperparameters['thresholdRPeak'] # 0.7
         self.learning_rate = self.hyperparameters['learning_rate']
         self.dataNorm =self.hyperparameters['dataNorm']
-        self.youden_index = 0.25
+        self.youden_index = 0.2
         self.testPlot = False
         
         if self.hyperparameters['norm'] =='layer':
@@ -573,7 +573,7 @@ class PVC_NET(pl.LightningModule):
 
             auc = sklearn.metrics.roc_auc_score(ys, yhats)
             ap  = sklearn.metrics.average_precision_score(ys, yhats)
-            self.youden_index = find_maxF1(ys, yhats)
+            # self.youden_index = find_maxF1(ys, yhats)
             
             negativeIdx = np.where(ys == 0)
             positiveIdx = np.where(ys != 0)
