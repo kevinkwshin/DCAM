@@ -2,7 +2,6 @@ from data import *
 from utils import *
 
 import neurokit2 as nk
-
 train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
@@ -16,7 +15,6 @@ INCART_data  = np.load('dataset/INCART_testSeg.npy',allow_pickle=True)
 NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
 STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
 SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
-# AMCREAL_data = np.load('dataset/AMCREAL_testSeg.npy',allow_pickle=True)
 
 class MIT_DATASET():
     def __init__(self, data, featureLength, srTarget, classes=4, normalize='instance', augmentation="NONE", random_crop=False):

@@ -133,58 +133,56 @@ class UNet(nn.Module):
             group = 4
             self.ACMLambda = 0.01
             if self.ACMLambda==0:
-                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)# if l>=5 else nn.Identity()
-                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)# if l>=4 else nn.Identity()
-                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)# if l>=3 else nn.Identity()
-                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)# if l>=2 else nn.Identity()
-                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)# if l>=1 else nn.Identity()
-            # else:
-            #     self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True)# if l>=5 else nn.Identity()
-            #     self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True)# if l>=4 else nn.Identity()
-            #     self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True)# if l>=3 else nn.Identity()
-            #     self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True)# if l>=2 else nn.Identity()
-            #     self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True)# if l>=1 else nn.Identity()
+                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            else:
+                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True)
+                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True)
+                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True)
+                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True)
+                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True)
         elif 'NLNN' in encModule:
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
-            self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=5 else nn.Identity()
-            self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=4 else nn.Identity()
-            self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=3 else nn.Identity()
-            self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=2 else nn.Identity()
-            self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)# if l>=1 else nn.Identity()
+            self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)
         elif 'FFC' in encModule:
-            self.encModule1 = FFC_BN_ACT(fea[0],fea[0])# if l>=5 else nn.Identity()
-            self.encModule2 = FFC_BN_ACT(fea[1],fea[1])# if l>=4 else nn.Identity()
-            self.encModule3 = FFC_BN_ACT(fea[2],fea[2])# if l>=3 else nn.Identity()
-            self.encModule4 = FFC_BN_ACT(fea[3],fea[3])# if l>=2 else nn.Identity()
-            self.encModule5 = FFC_BN_ACT(fea[4],fea[4])# if l>=1 else nn.Identity()
+            self.encModule1 = FFC_BN_ACT(fea[0],fea[0])
+            self.encModule2 = FFC_BN_ACT(fea[1],fea[1])
+            self.encModule3 = FFC_BN_ACT(fea[2],fea[2])
+            self.encModule4 = FFC_BN_ACT(fea[3],fea[3])
+            self.encModule5 = FFC_BN_ACT(fea[4],fea[4])
         elif 'DEEPRFT' in encModule:
-            self.encModule1 = FFT_ConvBlock(fea[0],fea[0])# if l>=5 else nn.Identity()
-            self.encModule2 = FFT_ConvBlock(fea[1],fea[1])# if l>=4 else nn.Identity()
-            self.encModule3 = FFT_ConvBlock(fea[2],fea[2])# if l>=3 else nn.Identity()
-            self.encModule4 = FFT_ConvBlock(fea[3],fea[3])# if l>=2 else nn.Identity()
-            self.encModule5 = FFT_ConvBlock(fea[4],fea[4])# if l>=1 else nn.Identity()
+            self.encModule1 = FFT_ConvBlock(fea[0],fea[0])
+            self.encModule2 = FFT_ConvBlock(fea[1],fea[1])
+            self.encModule3 = FFT_ConvBlock(fea[2],fea[2])
+            self.encModule4 = FFT_ConvBlock(fea[3],fea[3])
+            self.encModule5 = FFT_ConvBlock(fea[4],fea[4])
         elif 'SE' in encModule:
-            # l = int(encModule.split('BOTTOM')[-1])
-            # print(f"encModule: {encModule}")
-            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])# if l>=5 else nn.Identity()
-            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])# if l>=4 else nn.Identity()
-            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])# if l>=3 else nn.Identity()
-            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])# if l>=2 else nn.Identity()
-            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])# if l>=1 else nn.Identity()
+            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])
+            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
         elif 'CBAM' in encModule:
-            self.encModule1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=5 else nn.Identity()
-            self.encModule2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=4 else nn.Identity()
-            self.encModule3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=3 else nn.Identity()
-            self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=2 else nn.Identity()
-            self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])# if l>=1 else nn.Identity()
+            self.encModule1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max'])
+            self.encModule2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max'])
+            self.encModule3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max'])
+            self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])
+            self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])
         elif 'MHA' in encModule:
-            self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)# if l>=5 else nn.Identity()
-            self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)# if l>=4 else nn.Identity()
-            self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)# if l>=3 else nn.Identity()
-            self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)# if l>=2 else nn.Identity()
-            self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)# if l>=1 else nn.Identity()
+            self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+            self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
+            self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
             
         # multiTaskCLS
         self.mtl = mtl   
@@ -194,6 +192,7 @@ class UNet(nn.Module):
 
         if mtl == "CLS" or "ALL" in mtl:
             self.mtl_cls = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]),nn.AdaptiveAvgPool1d(1),nn.Conv1d(fea[4],1,1))
+
         if mtl == "REC" or "ALL" in mtl:
             mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
             mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
@@ -249,10 +248,10 @@ class UNet(nn.Module):
 
         elif 'MHA' in self.decModule:
             # featureLength = 1280
-            self.decModule1 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01) 
-            self.decModule2 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
-            self.decModule3 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
-            self.decModule4 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.decModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
+            self.decModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.decModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.decModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
 
         self.supervision = supervision
         if supervision == 'NONE':
@@ -299,7 +298,6 @@ class UNet(nn.Module):
             self.segheadModule = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
 
         self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
-                                    
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -401,7 +399,6 @@ class UNet(nn.Module):
             logits = self.final_conv(u0)
             # print(logits.shape)
                                         
-            # return [torch.sigmoid(logits), dp] if dp else torch.sigmoid(logits) # ACM lambda
             if "ALL" in self.mtl:
                 return [torch.sigmoid(logits), torch.sigmoid(out_cls), torch.tanh(out_rec)]
             elif self.mtl == "CLS":
@@ -418,8 +415,8 @@ class UNet(nn.Module):
             s2 = self.sv2(_upsample_like(x2,u0))
             s1 = self.sv1(_upsample_like(x1,u0))
             u0 = self.sv0(u0)
-            # print(u0.shape, s1.shape, s2.shape, s3.shape, s4.shape, s5.shape)
             u0 = torch.cat((u0,s1,s2,s3,s4,s5),dim=1)
+            # print(u0.shape, s1.shape, s2.shape, s3.shape, s4.shape, s5.shape)
             
             logits = self.final_conv(u0)
             # print(logits.shape)
@@ -435,6 +432,7 @@ class UNet(nn.Module):
         else:
             logits = self.final_conv(u0)
             # print(logits.shape)
+
             if "ALL" in self.mtl:
                 return [torch.sigmoid(logits), torch.sigmoid(out_cls), torch.tanh(out_rec)]
             elif self.mtl == "CLS":

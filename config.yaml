@@ -8,7 +8,7 @@ parameters:
     # dataSeed:
     #     values: [0,1,2,3,4,5,6,7,8]
     modelName:
-        values: ['efficientnet-b0'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
+        values: ['resnet34'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -28,7 +28,7 @@ parameters:
     # segheadModule:
     #     values: ['NONE','SE']
     encModule:
-        values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
+        values: ['NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA', 
     decModule:
         values: ['SE', 'DEEPRFT', 'ACM', 'MHA', 'NONE']
     mtl:
