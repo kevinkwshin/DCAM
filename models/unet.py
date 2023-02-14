@@ -28,29 +28,6 @@ from monai.networks.layers.factories import Act, Conv, Pad, Pool
 from monai.networks.layers.utils import get_norm_layer
 from monai.utils.module import look_up_option
 
-# def bn2instance(module):
-#     module_output = module
-#     if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-#         module_output = torch.nn.InstanceNorm1d(module.num_features,
-#                                                 module.eps, module.momentum,
-#                                                 module.affine,
-#                                                 module.track_running_stats)
-#         if module.affine:
-#             with torch.no_grad():
-#                 module_output.weight = module.weight
-#                 module_output.bias = module.bias
-#         module_output.running_mean = module.running_mean
-#         module_output.running_var = module.running_var
-#         module_output.num_batches_tracked = module.num_batches_tracked
-#         if hasattr(module, "qconfig"):
-#             module_output.qconfig = module.qconfig
-
-#     for name, child in module.named_children():
-#         module_output.add_module(name, bn2instance(child))
-
-#     del module
-#     return module_output
-
 def _upsample_like(src,tar):
     # src = F.upsample(src,size=tar.shape[2:], mode='linear')
     src = F.upsample(src,size=tar.shape[2:], mode='nearest')
@@ -390,13 +367,25 @@ class UNet(nn.Module):
             out_rec = self.mtl_rec(x5)
   
         u4 = self.upcat_4(x5, x4)
-        u4 = self.decModule4(u4)
+        if "MHA" not in self.decModule:
+            u4 = self.decModule4(u4)
+        else:
+            u4,_ = self.decModule4(u4,u4,u4)
         u3 = self.upcat_3(u4, x3)
-        u3 = self.decModule3(u3)
+        if "MHA" not in self.decModule:
+            u3 = self.decModule3(u3)
+        else:
+            u3,_ = self.decModule3(u3,u3,u3)
         u2 = self.upcat_2(u3, x2)
-        u2 = self.decModule2(u2)
+        if "MHA" not in self.decModule:
+            u2 = self.decModule2(u2)
+        else:
+            u2,_ = self.decModule2(u2,u2,u2)
         u1 = self.upcat_1(u2, x1)
-        u1 = self.decModule1(u1)
+        if "MHA" not in self.decModule:
+            u1 = self.decModule1(u1)
+        else:
+            u1,_ = self.decModule1(u1,u1,u1)
         u0 = self.upcat_0(u1, x0)
         # print(u0.shape, u1.shape, u2.shape, u3.shape, u4.shape)
         

@@ -34,8 +34,8 @@ NUM_WORKERS = os.cpu_count()
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
     modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
-    encModule = "SE", # "SE_BOTTOM5"
-    decModule = "SE", # "SE_BOTTOM5"
+    encModule = "MHA", # "SE_BOTTOM5"
+    decModule = "MHA", # "SE_BOTTOM5"
     mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     
     project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
@@ -58,7 +58,7 @@ config_defaults = dict(
     learning_rate = 1e-3,
     batch_size = 256, # 256
     dropout = 0.01,
-    thresholdRPeak = 0.7,
+    thresholdRPeak = 0.5,
     lossFn = 'BCE',
     # se = 'se',
 )
@@ -99,7 +99,7 @@ def train():
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
         valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
 
-    batch_size = 128
+    batch_size = model.hyperparameters['batch_size']
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     AMC_loader      = DataLoader(AMC_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
     CPSC2020_loader = DataLoader(CPSC2020_dataset,batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
