@@ -1,10 +1,10 @@
 import argparse
 parser = argparse.ArgumentParser(description='PVC-NET')
-parser.add_argument('--path', required=True, help='어느 것을 요구하냐')
+parser.add_argument('--ckpt_path', required=True, help='path to ckpt')
 args = parser.parse_args()
-path = args.path
+ckpt_path = args.ckpt_path
 
 from data import *
 from main import *
 
-test(path, True)
+test(ckpt_path, True)

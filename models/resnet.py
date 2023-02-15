@@ -35,8 +35,9 @@ class ResNetBlock(nn.Module):
         spatial_dims: int = 3,
         stride: int = 1,
         downsample: Union[nn.Module, partial, None] = None,
-        module="acm"
+        module="acm",
         # module="none"
+        norm = 'instance'
     ) -> None:
         """
         Args:
@@ -49,8 +50,10 @@ class ResNetBlock(nn.Module):
         super().__init__()
 
         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-        # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-        norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
+        if norm =='batch':
+            norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+        elif norm =='instance':
+            norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
 
         self.conv1 = conv_type(in_planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
         self.bn1 = norm_type(planes)
@@ -125,8 +128,9 @@ class ResNetBottleneck(nn.Module):
         spatial_dims: int = 3,
         stride: int = 1,
         downsample: Union[nn.Module, partial, None] = None,
-        module="acm"
+        module="acm",
         # module="none"
+        norm = 'instance'
     ) -> None:
         """
         Args:
@@ -140,8 +144,10 @@ class ResNetBottleneck(nn.Module):
         super().__init__()
 
         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-        # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-        norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
+        if norm =='batch':
+            norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+        elif norm =='instance':
+            norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
 
         self.conv1 = conv_type(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = norm_type(planes)
@@ -258,6 +264,7 @@ class ResNet(nn.Module):
         num_classes: int = 400,
         feed_forward: bool = True,
         bias_downsample: bool = True,  # for backwards compatibility (also see PR #5477)
+        norm = 'instance'
     ) -> None:
 
         super().__init__()
@@ -271,8 +278,10 @@ class ResNet(nn.Module):
                 raise ValueError("Unknown block '%s', use basic or bottleneck" % block)
 
         conv_type: Type[Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]] = Conv[Conv.CONV, spatial_dims]
-        # norm_type: Type[Union[nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]] = Norm[Norm.BATCH, spatial_dims]
-        norm_type: Type[Union[nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]] = Norm[Norm.INSTANCE, spatial_dims]
+        if norm =='batch':
+            norm_type: Type[Union[nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]] = Norm[Norm.BATCH, spatial_dims]
+        elif norm =='instance':
+            norm_type: Type[Union[nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d]] = Norm[Norm.INSTANCE, spatial_dims]
         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
         avgp_type: Type[Union[nn.AdaptiveAvgPool1d, nn.AdaptiveAvgPool2d, nn.AdaptiveAvgPool3d]] = Pool[
             Pool.ADAPTIVEAVG, spatial_dims
@@ -329,12 +338,15 @@ class ResNet(nn.Module):
         spatial_dims: int,
         shortcut_type: str,
         stride: int = 1,
+        norm = 'instance'
     ) -> nn.Sequential:
 
         conv_type: Callable = Conv[Conv.CONV, spatial_dims]
-        # norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
-        norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
-
+        if norm =='instance':
+            norm_type: Callable = Norm[Norm.INSTANCE, spatial_dims]
+        elif norm == 'batch':
+            norm_type: Callable = Norm[Norm.BATCH, spatial_dims]
+    
         downsample: Union[nn.Module, partial, None] = None
         if stride != 1 or self.in_planes != planes * block.expansion:
             if look_up_option(shortcut_type, {"A", "B"}) == "A":
@@ -351,14 +363,14 @@ class ResNet(nn.Module):
                         planes * block.expansion,
                         kernel_size=1,
                         stride=stride,
-                        bias=self.bias_downsample,
+                        bias=self.bias_downsample
                     ),
                     norm_type(planes * block.expansion),
                 )
 
         layers = [
             block(
-                in_planes=self.in_planes, planes=planes, spatial_dims=spatial_dims, stride=stride, downsample=downsample
+                in_planes=self.in_planes, planes=planes, spatial_dims=spatial_dims, stride=stride, downsample=downsample,
             )
         ]
 
@@ -406,10 +418,15 @@ class ResNetFeature(ResNet):
             num_classes: int = 400,
             feed_forward: bool = True,
             n_classes: Optional[int] = None,
+            norm = 'instance'
         ) -> None:
         super().__init__(block,layers,block_inplanes,spatial_dims,n_input_channels,conv1_t_size,conv1_t_stride,no_max_pool)
         self.spatial_dims= spatial_dims
-    
+        if norm == 'instance':
+            self.bn1 = nn.InstanceNorm1d(64)
+        if norm == 'batch':
+            self.bn1 = nn.BatchNorm1d(64)
+
         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
         self.mpool1 = pool_type(kernel_size=3, stride=2, ceil_mode=True)
         

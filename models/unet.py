@@ -8,6 +8,7 @@ from .deeprft import *
 from .ffc import *
 from .nnblock import *
 from .resnet import *
+# from .efficientnet import *
 
 import monai
 
@@ -19,18 +20,20 @@ from typing import List, NamedTuple, Optional, Tuple, Type, Union
 
 import torch
 from torch import nn
-from torch.utils import model_zoo
+# from torch.utils import model_zoo
 
 from monai.networks.blocks import Convolution, UpSample
-from monai.networks.nets.basic_unet import TwoConv, Down, UpCat, UpSample, Union
+from monai.networks.nets.basic_unet import TwoConv, Down, UpSample, Union
 from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
-from monai.networks.layers.utils import get_norm_layer
-from monai.utils.module import look_up_option
+# from monai.networks.layers.utils import get_norm_layer
+# from monai.utils.module import look_up_option
+
+from monai.utils import deprecated_arg, ensure_tuple_rep
 
 def _upsample_like(src,tar):
-    # src = F.upsample(src,size=tar.shape[2:], mode='linear')
-    src = F.upsample(src,size=tar.shape[2:], mode='nearest')
+    # src = F.upsample(src,size=tar.shape[2:], mode='linear') # original
+    src = F.upsample(src,size=tar.shape[2:], mode='nearest') # to deterministic function
     return src
 
 class UNet(nn.Module):
@@ -84,21 +87,22 @@ class UNet(nn.Module):
         if 'efficientnet' in modelName:
             ########################################################## preset init_ch
             self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=1, norm=norm , num_classes=1000, adv_prop=True)
-            # self.encoder =EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=1, norm=norm , num_classes=1000, adv_prop=True,se_module=se_module)
+            # self.encoder =EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=1, norm=norm , num_classes=1000, adv_prop=True)
             x_test = torch.rand(2, 1, featureLength)
             yhat_test = self.encoder(x_test)
             init_ch = yhat_test[0].shape[1]
             ########################################################## preset init_ch
             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
             self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=init_ch, norm=norm , num_classes=1000, adv_prop=True)
-            # self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=init_ch, norm=norm , num_classes=1000, adv_prop=True,se_module=se_module)
+            # self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=init_ch, norm=norm , num_classes=1000, adv_prop=True)
+
         elif 'resnet' in modelName:
             if modelName == 'resnet18':
-                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=in_channels)
+                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
             elif modelName == 'resnet34':
-                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=in_channels)
+                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
             elif modelName == 'resnet50':
-                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=in_channels)
+                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
 
             x_test = torch.rand(2, in_channels, 1280)
             yhat_test = self.encoder(x_test)
@@ -106,12 +110,12 @@ class UNet(nn.Module):
             ########################################################## preset init_ch
             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
             if modelName == 'resnet18':
-                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=init_ch)
+                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
             elif modelName == 'resnet34':
-                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=init_ch)
+                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
             elif modelName == 'resnet50':
-                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=init_ch)
-            # self.encoder = bn2instance(self.encoder)
+                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
+
         else:
             print('please check modelName')
         
@@ -267,37 +271,41 @@ class UNet(nn.Module):
             self.sv5= Conv["conv", spatial_dims](fea[4], out_channels*8, kernel_size=3, padding=1)
             supervision_c =  out_channels*8*6
             
-        # self.segheadModule = segheadModule
-        self.segheadModule = nn.Identity()
+        self.segheadModule = segheadModule
+        self.segheadModule0 = nn.Identity()
         print(f"U-NET segheadModule is {segheadModule}")
 
         if 'ACM' in segheadModule:
             group = 4
             self.ACMLambda = 0
             if self.ACMLambda==0:
-                self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=False)
+                self.segheadModule0 = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=False)
             else:
-                self.segheadModule = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=True)
+                self.segheadModule0 = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=True)
 
         elif 'NLNN' in segheadModule:
             norms = ['instance','batch']
             if not norm in norms:
                 norm = None
-            self.segheadModule = NLBlockND(in_channels=supervision_c, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+            self.segheadModule0 = NLBlockND(in_channels=supervision_c, mode='embedded', dimension=spatial_dims, norm_layer=norm)
 
         elif 'FFC' in segheadModule:
-            self.segheadModule = FFC_BN_ACT(supervision_c,supervision_c)       
+            self.segheadModule0 = FFC_BN_ACT(supervision_c,supervision_c)       
 
         elif 'DEEPRFT' in segheadModule:
-            self.segheadModule = FFT_ConvBlock(supervision_c,supervision_c)
+            self.segheadModule0 = FFT_ConvBlock(supervision_c,supervision_c)
 
         elif 'SE' in segheadModule:
-            self.segheadModule = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
+            self.segheadModule0 = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
             
         elif 'CBAM' in segheadModule:
-            self.segheadModule = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
+            self.segheadModule0 = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
 
-        self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
+        elif 'MHA' in segheadModule:
+            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01)
+
+        # self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
+        self.final_conv = Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1)
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -395,7 +403,10 @@ class UNet(nn.Module):
             s1 = _upsample_like(x1,u0)            
             u0 = torch.cat((u0,s1,s2,s3,s4,s5),dim=1)            
             # print(u0.shape, s1.shape, s2.shape, s3.shape, s4.shape, s5.shape)
-            
+            if 'MHA' in self.segheadModule:
+                u0,_ = self.segheadModule0(u0,u0,u0)
+            else:
+                u0 = self.segheadModule0(u0)        
             logits = self.final_conv(u0)
             # print(logits.shape)
                                         
@@ -417,8 +428,10 @@ class UNet(nn.Module):
             u0 = self.sv0(u0)
             u0 = torch.cat((u0,s1,s2,s3,s4,s5),dim=1)
             # print(u0.shape, s1.shape, s2.shape, s3.shape, s4.shape, s5.shape)
-            
-            logits = self.final_conv(u0)
+            if 'MHA' in self.segheadModule:
+                u0,_ = self.segheadModule0(u0,u0,u0)
+            else:
+                u0 = self.segheadModule0(u0)      
             # print(logits.shape)
 
             if "ALL" in self.mtl:
@@ -430,7 +443,10 @@ class UNet(nn.Module):
             else:
                 return torch.sigmoid(logits)
         else:
-            logits = self.final_conv(u0)
+            if 'MHA' in self.segheadModule:
+                u0,_ = self.segheadModule0(u0,u0,u0)
+            else:
+                u0 = self.segheadModule0(u0)      
             # print(logits.shape)
 
             if "ALL" in self.mtl:
@@ -441,3 +457,96 @@ class UNet(nn.Module):
                 return [torch.sigmoid(logits), torch.tanh(out_rec)]
             else:
                 return torch.sigmoid(logits)
+
+
+    
+class UpCat(nn.Module):
+    """upsampling, concatenation with the encoder feature map, two convolutions"""
+
+    @deprecated_arg(name="dim", new_name="spatial_dims", since="0.6", msg_suffix="Please use `spatial_dims` instead.")
+    def __init__(
+        self,
+        spatial_dims: int,
+        in_chns: int,
+        cat_chns: int,
+        out_chns: int,
+        act: Union[str, tuple],
+        norm: Union[str, tuple],
+        bias: bool,
+        dropout: Union[float, tuple] = 0.0,
+        upsample: str = "deconv",
+        pre_conv: Optional[Union[nn.Module, str]] = "default",
+        interp_mode: str = "linear",
+        align_corners: Optional[bool] = True,
+        halves: bool = True,
+        dim: Optional[int] = None,
+        # is_pad: bool = True,
+        is_pad: bool = False,
+    ):
+        """
+        Args:
+            spatial_dims: number of spatial dimensions.
+            in_chns: number of input channels to be upsampled.
+            cat_chns: number of channels from the decoder.
+            out_chns: number of output channels.
+            act: activation type and arguments.
+            norm: feature normalization type and arguments.
+            bias: whether to have a bias term in convolution blocks.
+            dropout: dropout ratio. Defaults to no dropout.
+            upsample: upsampling mode, available options are
+                ``"deconv"``, ``"pixelshuffle"``, ``"nontrainable"``.
+            pre_conv: a conv block applied before upsampling.
+                Only used in the "nontrainable" or "pixelshuffle" mode.
+            interp_mode: {``"nearest"``, ``"linear"``, ``"bilinear"``, ``"bicubic"``, ``"trilinear"``}
+                Only used in the "nontrainable" mode.
+            align_corners: set the align_corners parameter for upsample. Defaults to True.
+                Only used in the "nontrainable" mode.
+            halves: whether to halve the number of channels during upsampling.
+                This parameter does not work on ``nontrainable`` mode if ``pre_conv`` is `None`.
+            is_pad: whether to pad upsampling features to fit features from encoder. Defaults to True.
+        .. deprecated:: 0.6.0
+            ``dim`` is deprecated, use ``spatial_dims`` instead.
+        """
+        super().__init__()
+        if dim is not None:
+            spatial_dims = dim
+        if upsample == "nontrainable" and pre_conv is None:
+            up_chns = in_chns
+        else:
+            up_chns = in_chns // 2 if halves else in_chns
+        self.upsample = UpSample(
+            spatial_dims,
+            in_chns,
+            up_chns,
+            2,
+            mode=upsample,
+            pre_conv=pre_conv,
+            interp_mode=interp_mode,
+            align_corners=align_corners,
+        )
+        self.convs = TwoConv(spatial_dims, cat_chns + up_chns, out_chns, act, norm, bias, dropout)
+        self.is_pad = is_pad
+
+    def forward(self, x: torch.Tensor, x_e: Optional[torch.Tensor]):
+        """
+        Args:
+            x: features to be upsampled.
+            x_e: features from the encoder.
+        """
+        x_0 = self.upsample(x)
+
+        if x_e is not None:
+            if self.is_pad:
+                # handling spatial shapes due to the 2x maxpooling with odd edge lengths.
+                dimensions = len(x.shape) - 2
+                sp = [0] * (dimensions * 2)
+                for i in range(dimensions):
+                    if x_e.shape[-i - 1] != x_0.shape[-i - 1]:
+                        sp[i * 2 + 1] = 1
+                # x_0 = torch.nn.functional.pad(x_0, sp, "replicate") # original
+                x_0 = torch.nn.functional.pad(x_0, sp, "constant") # for deterministic 
+            x = self.convs(torch.cat([x_e, x_0], dim=1))  # input channels: (cat_chns + up_chns)
+        else:
+            x = self.convs(x_0)
+
+        return x

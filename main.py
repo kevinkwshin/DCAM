@@ -33,10 +33,10 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
-    encModule = "MHA", # "SE_BOTTOM5"
-    decModule = "MHA", # "SE_BOTTOM5"
-    mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
+    modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    encModule = "ACM", # "SE_BOTTOM5"
+    decModule = "ACM", # "SE_BOTTOM5"
+    segheadModule = "MHA",
     
     project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -50,17 +50,16 @@ config_defaults = dict(
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
-    segheadModule = "SE",
+    dropout = 0.01,
+    mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = '20230213_MTL',
+    path_logRoot = '20230215_Module',
     spatial_dims = 1,
     learning_rate = 1e-3,
     batch_size = 256, # 256
-    dropout = 0.01,
     thresholdRPeak = 0.5,
     lossFn = 'BCE',
-    # se = 'se',
 )
 
 def train():
@@ -125,8 +124,8 @@ def train():
                         strategy ='dp',
                         max_epochs=400, # 80
                         sync_batchnorm=True,
-                        # benchmark=False,
-                        # deterministic=True,
+                        benchmark=False,
+                        deterministic=True,
                         check_val_every_n_epoch=5,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
                         callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.4, swa_lrs=1e-4)], #
