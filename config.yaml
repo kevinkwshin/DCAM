@@ -26,7 +26,7 @@ parameters:
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
     segheadModule:
-        values: ['SE', 'MHA','NONE']
+        values: ['SE', 'MHA', 'NONE']
     encModule:
         values: ['NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA', 
     decModule:

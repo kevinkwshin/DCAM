@@ -10,7 +10,6 @@ os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
 # os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
 gpus= "0,1,2,3"
-# gpus= "0,1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = gpus
 os.environ["WANDB_API_KEY"] = '6cd6a2f58c8f4625faaea5c73fe110edab2be208'
@@ -35,7 +34,7 @@ config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
     modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     encModule = "ACM", # "SE_BOTTOM5"
-    decModule = "ACM", # "SE_BOTTOM5"
+    decModule = "DEEPRFT", # "SE_BOTTOM5"
     segheadModule = "MHA",
     
     project = 'PVC_NET',  ########################## this is cutoff line of path_logRoot ##############################
@@ -93,7 +92,8 @@ def train():
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
-        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
+        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
         valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
@@ -121,7 +121,9 @@ def train():
                         gradient_clip_val=0.1,
                         accelerator='gpu',
                         devices=-1,
-                        strategy ='dp',
+                        num_sanity_val_steps=0,
+                        replace_sampler_ddp=False,
+                        strategy='dp', # 'dp'
                         max_epochs=400, # 80
                         sync_batchnorm=True,
                         benchmark=False,
@@ -186,7 +188,7 @@ def test(path, testPlot=False):
                         accelerator='gpu',
                         devices=-1,
                         strategy ='dp',
-                        max_epochs=200, # 80
+                        max_epochs=400, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
@@ -728,7 +730,6 @@ class PVC_NET(pl.LightningModule):
             self.plotCaseResult(xs, ys, yhatsRaw, yhatsRefined, fnames) if self.testPlot else 0
         except:
             pass
-        
         
     def eval_Peak(self, yhat, y):
         
