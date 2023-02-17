@@ -73,7 +73,7 @@ class MIT_DATASET():
     
         # resampling
         if self.augmentation:
-            srTarget = np.random.randint(int(self.srTarget*0.97),int(self.srTarget*1.03)) # time stretching, you need to carefully check here
+            srTarget = np.random.randint(int(self.srTarget*0.9),int(self.srTarget*1.1)) # time stretching, you need to carefully check here
         else: 
             srTarget = self.srTarget
             
