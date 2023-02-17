@@ -2,8 +2,10 @@ from data import *
 from utils import *
 
 import neurokit2 as nk
-train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
-valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+# train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+train_data = np.load('dataset//mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
+valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
 test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
 
 AMC_data  = np.load('dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples

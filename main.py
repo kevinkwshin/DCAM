@@ -1027,7 +1027,7 @@ def EDA(config_defaults):
     featureLength = model.hyperparameters['featureLength']       
     dataNorm = model.hyperparameters['dataNorm']
 
-    train_files = glob('dataset/MIT-BIH_NPY/train/*.npy')
+    # train_files = glob('dataset/MIT-BIH_NPY/train/*.npy')
     # train_data, valid_data = seed_MITBIH(train_files, model.hyperparameters['dataSeed'])
     train_data, valid_data = FOLD5_MITBIH(train_files, model.hyperparameters['dataSeed'])
     
