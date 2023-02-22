@@ -19,8 +19,8 @@ parameters:
     #     values: [True, False]
     # lossFn:
     #     values: ['BCE', 'FOCAL', 'BCEFOCAL']
-    upsample:
-        values: ['deconv', 'pixelshuffle']
+    outChannels:
+        values: [2,3,4]
     upsample:
         values: ['deconv', 'pixelshuffle']
     supervision: 
