@@ -443,7 +443,8 @@ class UNet(nn.Module):
             if 'MHA' in self.segheadModule:
                 u0,_ = self.segheadModule0(u0,u0,u0)
             else:
-                u0 = self.segheadModule0(u0)      
+                u0 = self.segheadModule0(u0)     
+            logits = self.final_conv(u0)
             # print(logits.shape)
 
             if "ALL" in self.mtl:
