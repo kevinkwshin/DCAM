@@ -182,11 +182,11 @@ class UNet(nn.Module):
             self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])
             self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])
         elif 'MHA' in encModule:
-            self.encModule1 = nn.MultiheadAttention(featureLength//2, 16, batch_first=True, dropout=0.01)
-            self.encModule2 = nn.MultiheadAttention(featureLength//4, 16, batch_first=True, dropout=0.01)
-            self.encModule3 = nn.MultiheadAttention(featureLength//8, 16, batch_first=True, dropout=0.01)
-            self.encModule4 = nn.MultiheadAttention(featureLength//16, 16, batch_first=True, dropout=0.01)
-            self.encModule5 = nn.MultiheadAttention(featureLength//32, 16, batch_first=True, dropout=0.01)
+            self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+            self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
+            self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
             
         # multiTaskCLS
         self.mtl = mtl   
@@ -252,10 +252,10 @@ class UNet(nn.Module):
 
         elif 'MHA' in self.decModule:
             # featureLength = 1280
-            self.decModule1 = nn.MultiheadAttention(featureLength//2, 16, batch_first=True, dropout=0.01) 
-            self.decModule2 = nn.MultiheadAttention(featureLength//4, 16, batch_first=True, dropout=0.01)
-            self.decModule3 = nn.MultiheadAttention(featureLength//8, 16, batch_first=True, dropout=0.01)
-            self.decModule4 = nn.MultiheadAttention(featureLength//16, 16, batch_first=True, dropout=0.01)
+            self.decModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
+            self.decModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+            self.decModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+            self.decModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
 
         self.supervision = supervision
         if supervision == 'NONE':
@@ -302,7 +302,7 @@ class UNet(nn.Module):
             self.segheadModule0 = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
 
         elif 'MHA' in segheadModule:
-            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 16, batch_first=True, dropout=0.01)
+            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01)
 
         # self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
         self.final_conv = Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1)

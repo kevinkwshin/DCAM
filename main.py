@@ -56,7 +56,7 @@ config_defaults = dict(
     path_logRoot = '20230215_Module',
     spatial_dims = 1,
     learning_rate = 1e-3,
-    batch_size = 256, # 256
+    batch_size = 192, # 256
     thresholdRPeak = 0.5,
     lossFn = 'BCE',
 )

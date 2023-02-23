@@ -2,7 +2,7 @@ program: train.py
 name :  Sweep_Module # sweep run name!!
 method: bayes # bayes, grid
 metric:
-    name: testMIT_F1_Class1Raw
+    name: testAMC_F1_Class1Raw
     goal: maximize
 parameters:
     # dataSeed:
