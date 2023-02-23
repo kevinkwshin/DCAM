@@ -8,7 +8,6 @@ from .deeprft import *
 from .ffc import *
 from .nnblock import *
 from .resnet import *
-# from .efficientnet import *
 
 import monai
 
@@ -20,14 +19,11 @@ from typing import List, NamedTuple, Optional, Tuple, Type, Union
 
 import torch
 from torch import nn
-# from torch.utils import model_zoo
 
 from monai.networks.blocks import Convolution, UpSample
 from monai.networks.nets.basic_unet import TwoConv, Down, UpSample, Union
 from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
-# from monai.networks.layers.utils import get_norm_layer
-# from monai.utils.module import look_up_option
 
 from monai.utils import deprecated_arg, ensure_tuple_rep
 
@@ -104,7 +100,7 @@ class UNet(nn.Module):
             elif modelName == 'resnet50':
                 self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
 
-            x_test = torch.rand(2, in_channels, 1280)
+            x_test = torch.rand(2, in_channels, featureLength)
             yhat_test = self.encoder(x_test)
             init_ch = yhat_test[0].shape[1]
             ########################################################## preset init_ch
@@ -119,7 +115,7 @@ class UNet(nn.Module):
         else:
             print('please check modelName')
         
-        x = torch.rand(2, init_ch, 64)
+        x = torch.rand(2, init_ch, featureLength)
         yhat = self.encoder(x)
         fea = [yhat_.shape[1] for yhat_ in yhat]
         print(fea)
@@ -458,7 +454,6 @@ class UNet(nn.Module):
                 return [torch.sigmoid(logits), torch.tanh(out_rec)]
             else:
                 return torch.sigmoid(logits)
-
 
     
 class UpCat(nn.Module):
