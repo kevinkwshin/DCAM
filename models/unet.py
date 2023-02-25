@@ -298,7 +298,7 @@ class UNet(nn.Module):
             self.segheadModule0 = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
 
         elif 'MHA' in segheadModule:
-            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 8, batch_first=True, dropout=0.01)
+            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 2, batch_first=True, dropout=0.01)
 
         # self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
         self.final_conv = Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1)

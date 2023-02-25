@@ -32,10 +32,10 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='efficientnet-b2', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
+    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
     encModule = "ACM", # "SE_BOTTOM5"
-    decModule = "DEEPRFT", # "SE_BOTTOM5"
-    segheadModule = "MHA",
+    decModule = "ACM", # "SE_BOTTOM5"
+    segheadModule = "SE",
     
     project = 'PVC-NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -47,7 +47,7 @@ config_defaults = dict(
     outChannels = 2,
 
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
-    upsample = 'pixelshuffle', #'pixelshuffle', # 'nontrainable'
+    upsample = 'deconv', #'pixelshuffle', # 'nontrainable', 'deconv'
     supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
     dropout = 0.01,
     mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
