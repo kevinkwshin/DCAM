@@ -1,5 +1,5 @@
 program: train.py
-name :  Sweep_Module # sweep run name!!
+name :  Sweep_ResNet # sweep run name!!
 method: bayes # bayes, grid
 metric:
     name: testAMC_F1_Class1Raw
@@ -8,7 +8,7 @@ parameters:
     # dataSeed:
     #     values: [0,1,2,3,4,5,6,7,8]
     modelName:
-        values: ['efficientnet-b0','efficientnet-b1'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
+        values: ['efficientnet-b0','resnet34'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -19,19 +19,19 @@ parameters:
     #     values: [True, False]
     # lossFn:
     #     values: ['BCE', 'FOCAL', 'BCEFOCAL']
-    outChannels:
-        values: [2,3,4]
+    # outChannels:
+    #     values: [2,3,4]
     upsample:
-        values: ['deconv', 'pixelshuffle']
+        values: ['deconv', 'pixelshuffle','nontrainable']
     supervision: 
-        values: ['NONE','TYPE1','TYPE2']
+        values: ['TYPE1','TYPE2']
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
-    segheadModule:
-        values: ['SE', 'MHA', 'NONE']
-    encModule:
-        values: ['ACM', 'SE', 'MHA', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA', 
+    # encModule:
+    #     values: ['ACM', 'SE', 'MHA', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA', 
     decModule:
         values: ['ACM', 'SE', 'MHA', 'NONE'] # 'SE', 'DEEPRFT', 'NLNN', 'CBAM',
+    segheadModule:
+        values: ['SE', 'MHA', 'NONE']
     mtl:
         values: ['CLS', 'REC', 'ALL_max', 'ALL_avg', 'NONE']

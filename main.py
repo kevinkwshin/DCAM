@@ -33,9 +33,9 @@ NUM_WORKERS = os.cpu_count()
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
     modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
-    encModule = "ACM", # "SE_BOTTOM5"
+    encModule = "DEEPRFT", # "SE_BOTTOM5"
     decModule = "ACM", # "SE_BOTTOM5"
-    segheadModule = "SE",
+    segheadModule = "MHA",
     
     project = 'PVC-NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -53,7 +53,7 @@ config_defaults = dict(
     mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = '20230215_Module',
+    path_logRoot = '20230218_Module',
     spatial_dims = 1,
     learning_rate = 1e-3,
     batch_size = 256, # 256

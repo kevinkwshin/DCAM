@@ -14,7 +14,8 @@ import monai
 
 ## upsample tensor 'src' to have the same spatial size with tensor 'tar'
 def _upsample_like(src,tar):
-    src = F.upsample(src,size=tar.shape[2:],mode='linear')
+    src = F.upsample(src,size=tar.shape[2:], mode='linear') # original
+    # src = F.upsample(src,size=tar.shape[2:], mode='nearest') # to deterministic function    
     return src
 
 class REBNCONV(nn.Module):

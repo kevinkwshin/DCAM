@@ -64,7 +64,7 @@ class ResNetBlock(nn.Module):
         self.stride = stride
         
         spatial_dims = 1
-        num_acm_groups = 8
+        num_acm_groups = 32
         orthogonal_loss= False
         # orthogonal_loss= True
 
@@ -159,7 +159,7 @@ class ResNetBottleneck(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
-        num_acm_groups = 8
+        num_acm_groups = 32
         orthogonal_loss= False
         # orthogonal_loss= True
 
