@@ -153,7 +153,7 @@ class ModulateModule(nn.Module):
         self.feature_gen = nn.Sequential(
             nn.Conv1d(channel, channel // compressions, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
             # nn.ReLU(inplace=True),
-            nn.GELU(inplace=True),
+            nn.GELU(),
             nn.Conv1d(channel // compressions, channel, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
             nn.Sigmoid()
         )
