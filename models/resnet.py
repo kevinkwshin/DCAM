@@ -57,7 +57,8 @@ class ResNetBlock(nn.Module):
 
         self.conv1 = conv_type(in_planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
         self.bn1 = norm_type(planes)
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.conv2 = conv_type(planes, planes, kernel_size=3, padding=1, bias=False)
         self.bn2 = norm_type(planes)
         self.downsample = downsample
@@ -155,7 +156,8 @@ class ResNetBottleneck(nn.Module):
         self.bn2 = norm_type(planes)
         self.conv3 = conv_type(planes, planes * self.expansion, kernel_size=1, bias=False)
         self.bn3 = norm_type(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.downsample = downsample
         self.stride = stride
 
@@ -306,7 +308,8 @@ class ResNet(nn.Module):
             bias=False,
         )
         self.bn1 = norm_type(self.in_planes)
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.maxpool = pool_type(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, block_inplanes[0], layers[0], spatial_dims, shortcut_type)
         self.layer2 = self._make_layer(block, block_inplanes[1], layers[1], spatial_dims, shortcut_type, stride=2)

@@ -39,7 +39,8 @@ class UNet(nn.Module):
         spatial_dims: int = 1,
         in_channels: int = 1,
         out_channels: int = 2,
-        act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": False}),
+        # act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": False}),
+        act: Union[str, tuple] = 'gelu',
         norm: Union[str, tuple] = ("instance", {"affine": True}),
         bias: bool = True,
         dropout: Union[float, tuple] = 0, # (0.1, {"inplace": True}),
@@ -130,14 +131,19 @@ class UNet(nn.Module):
         print(f"U-NET encModule is {encModule}")
 
         if 'ACM' in encModule:
-            group = 4
+            group = 32
             self.ACMLambda = 0.01
             if self.ACMLambda==0:
-                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
-                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
-                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
-                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
-                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+            #     self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
+            #     self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
+            #     self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
+            #     self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
+            #     self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
+                self.encModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=False)
+                self.encModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=False)
+                self.encModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=False)
+                self.encModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=False)
+                self.encModule5 = ACM(num_heads=group, num_features=fea[4], orthogonal_loss=False)
             else:
                 self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True)
                 self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True)
@@ -194,11 +200,16 @@ class UNet(nn.Module):
             self.mtl_cls = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]),nn.AdaptiveAvgPool1d(1),nn.Conv1d(fea[4],1,1))
 
         if mtl == "REC" or "ALL" in mtl:
-            mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
             self.mtl_rec = nn.Sequential(mtl4,nn.Upsample(scale_factor=2),mtl3,nn.Upsample(scale_factor=2),mtl2,nn.Upsample(scale_factor=2),mtl1,nn.Upsample(scale_factor=2),mtl0,nn.Upsample(scale_factor=2))
         
         # U-Net Decoder

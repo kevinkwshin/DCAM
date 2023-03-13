@@ -21,7 +21,7 @@ class ACM(nn.Module):
         y = acm(x1)
         print(x1.shape,y.shape)
     """
-    def __init__(self, num_heads, num_features, orthogonal_loss=False):
+    def __init__(self, num_heads, num_features, orthogonal_loss=False, acm_type='TYPE4'):
         super(ACM, self).__init__()
 
         assert num_features % num_heads == 0
@@ -34,7 +34,7 @@ class ACM(nn.Module):
         self.mul_mod = ModulateModule(channel=self.num_features, num_groups=num_heads, compressions=2)
 
         self.orthogonal_loss = orthogonal_loss
-
+        self.acm_type = acm_type
         self.init_parameters()
 
     def init_parameters(self):
@@ -58,7 +58,15 @@ class ACM(nn.Module):
         # creates add or sub feature
         add_feature = self.add_mod(x_mu)  # K
         sub_feature = self.sub_mod(x_mu)  # Q
-        y = (x + add_feature - sub_feature) * mul_feature
+        
+        if self.acm_type == 'TYPE1':
+            y = x + add_feature - sub_feature
+        elif self.acm_type == 'TYPE2':
+            y = (x) * mul_feature
+        elif self.acm_type == 'TYPE3':
+            y = (x + add_feature) * mul_feature
+        elif self.acm_type == 'TYPE4':
+            y = (x + add_feature - sub_feature) * mul_feature
 
         if self.orthogonal_loss:
             dp = torch.mean(add_feature * sub_feature, dim=1, keepdim=True)
@@ -144,7 +152,8 @@ class ModulateModule(nn.Module):
         super(ModulateModule, self).__init__()
         self.feature_gen = nn.Sequential(
             nn.Conv1d(channel, channel // compressions, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
-            nn.ReLU(inplace=True),
+            # nn.ReLU(inplace=True),
+            nn.GELU(inplace=True),
             nn.Conv1d(channel // compressions, channel, kernel_size=1, stride=1, padding=0, bias=True, groups=num_groups),
             nn.Sigmoid()
         )
@@ -158,18 +167,3 @@ class ModulateModule(nn.Module):
     def forward(self, x):
         y = self.feature_gen(x)
         return y
-
-# if __name__ == '__main__':
-#     import torch
-#     x1 = torch.rand(2, 320, 160).float()
-#     print('x1',x1.shape)
-#     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=True)
-#     acm.init_parameters()
-#     y, dp = acm(x1)
-#     print('y1', y.shape, 'dp', dp.shape)
-
-#     # ACM without orthogonal loss
-#     acm = ACM(num_heads=32, num_features=320, orthogonal_loss=False)
-#     acm.init_parameters()
-#     y = acm(x1)
-#     print(x1.shape, y.shape)
