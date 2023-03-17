@@ -4,6 +4,7 @@ from utils import *
 import neurokit2 as nk
 # train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 # valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+
 train_data = np.load('/workspace/signal/PVC-NET_/dataset//mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
 valid_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
 test_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
@@ -18,8 +19,11 @@ NS_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-noise-stress-test-
 STDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
 SVDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
 
+mean, std = EDA_zscore(train_data)
+train_data = np.concatenate((train_data,STDB_data))
+
 class MIT_DATASET():
-    def __init__(self, data, featureLength, srTarget, classes=4, normalize='instance', augmentation="NONE", random_crop=False):
+    def __init__(self, data, featureLength, srTarget, classes=2, normalize='minmaxI', augmentation="NONE", random_crop=False):
         self.data = data
         self.classes = classes
         self.augmentation = augmentation
@@ -36,8 +40,7 @@ class MIT_DATASET():
         self.srTarget = srTarget
         self.featureLength = featureLength
         self.normalize = normalize
-        self.mean, self.std = EDA_zscore(data)
-        # print('mean', self.mean, 'std', self.std)
+        self.mean, self.std = mean, std
         
     def __len__(self):
         return len(self.data)
@@ -599,7 +602,7 @@ def remove_baseline_wander(signal, fs):
     order = 4
     nyq = 0.5 * fs
     lowcut = 0.67 #0.5
-    highcut = 40
+    highcut = 50
     low = lowcut / nyq
     high = highcut / nyq
     b, a = butter(order, [low, high], btype='band')
@@ -661,9 +664,9 @@ def zscore(arr, mean=None, std=None):
     if mean == None or std == None:
         mean = np.mean(arr)
         std = np.std(arr)
-    return (arr-mean)/std
+    return (arr-mean)/(std+1e-8)
 
-def augment_neurokit2(sig, sr, p=0.3):
+def augment_neurokit2(sig, sr, p=0.2):
     
     if np.random.rand(1) <= p:
         beta = (np.random.rand(1)-.5)*4

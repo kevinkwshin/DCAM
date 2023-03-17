@@ -32,10 +32,10 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP'
-    encModule = "DEEPRFT", # "SE_BOTTOM5"
-    decModule = "ACM", # "SE_BOTTOM5"
-    segheadModule = "MHA",
+    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
+    encModule = "none", # "SE_BOTTOM5"
+    decModule = "NONE", # "SE_BOTTOM5"
+    segheadModule = "NONE",
     
     project = 'PVC-NET',  ########################## this is cutoff line of path_logRoot ##############################
 
@@ -48,15 +48,15 @@ config_defaults = dict(
 
     norm = 'instance', # 'instance', 'batch', 'group', 'layer'
     upsample = 'deconv', #'pixelshuffle', # 'nontrainable', 'deconv'
-    supervision = "TYPE1", #'NONE', 'TYPE1', 'TYPE2'
-    dropout = 0.01,
-    mtl = 'ALL_avg', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
+    supervision = "NONE", #'NONE', 'TYPE1', 'TYPE2'
+    dropout = 0.1,
+    mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = '20230218_Module',
+    path_logRoot = 'exp_20230316',
     spatial_dims = 1,
     learning_rate = 1e-3,
-    batch_size = 256, # 256
+    batch_size = 512, # 256
     thresholdRPeak = 0.7,
     lossFn = 'BCE',
 )
@@ -89,11 +89,12 @@ def train():
     # STDB_dataset     = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
     SVDB_dataset     = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
     # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
+    
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
-        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
-        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
+        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
         valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
@@ -122,15 +123,17 @@ def train():
                         accelerator='gpu',
                         devices=-1,
                         num_sanity_val_steps=0,
-                        replace_sampler_ddp=False,
+                        # replace_sampler_ddp=True,
                         strategy='dp', # 'dp'
-                        max_epochs=400, # 80
+                        max_epochs=100, # 80
                         sync_batchnorm=True,
                         benchmark=False,
                         deterministic=True,
-                        check_val_every_n_epoch=5,
-                        # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_lrs=0.05)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.4, swa_lrs=1e-4)], #
+                        # benchmark=True,
+                        # deterministic=False,
+                        check_val_every_n_epoch=2,
+                        # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_epoch_start=0.1, swa_lrs=1e-5)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.2, swa_lrs=1e-4)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -148,6 +151,7 @@ def train():
     result_INCART = trainer.test(model, INCART_loader, ckpt_path='best')
     result_NS = trainer.test(model, NS_loader, ckpt_path='best')
     # result_STDB = trainer.test(model, STDB_loader,ckpt_path='best')
+    
     result_SVDB = trainer.test(model, SVDB_loader, ckpt_path='best')
 
 def test(path, testPlot=False):
@@ -227,7 +231,7 @@ class PVC_NET(pl.LightningModule):
         self.thresholdRPeak = self.hyperparameters['thresholdRPeak'] # 0.7
         self.learning_rate = self.hyperparameters['learning_rate']
         self.dataNorm =self.hyperparameters['dataNorm']
-        self.youden_index = 0.2
+        self.youden_index = 0.3
         self.testPlot = False
         
         if self.hyperparameters['norm'] =='layer':
@@ -238,7 +242,7 @@ class PVC_NET(pl.LightningModule):
             norm = self.hyperparameters['norm']
         
         # define model using hyperparamters
-        if 'efficient' in hyperparameters['modelName'] or 'resnet' in hyperparameters['modelName']:
+        if 'efficient' in hyperparameters['modelName'] or 'resnet' in hyperparameters['modelName'] or 'basic' in hyperparameters['modelName']:
             self.net = nets.UNet(modelName = hyperparameters['modelName'], 
                             spatial_dims = hyperparameters['spatial_dims'],
                             in_channels = hyperparameters['inChannels'],
@@ -254,6 +258,7 @@ class PVC_NET(pl.LightningModule):
                             segheadModule = hyperparameters['segheadModule'],
                             # se_module= hyperparameters['se'],
                             mtl=hyperparameters['mtl'],
+                            temperature=2,
                            )
             
         elif hyperparameters['modelName'] == 'U2NET':
@@ -263,7 +268,7 @@ class PVC_NET(pl.LightningModule):
                                   encModule = hyperparameters['encModule'],
                                   decModule = hyperparameters['decModule'],
                                   dropout = hyperparameters['dropout'],
-                                  temperature=.5,
+                                  temperature=2,
                                   norm = hyperparameters['norm'],
                                  )
         
@@ -274,7 +279,7 @@ class PVC_NET(pl.LightningModule):
                                   encModule = hyperparameters['encModule'],
                                   decModule = hyperparameters['decModule'],
                                   dropout = hyperparameters['dropout'],
-                                  temperature=.5,
+                                  temperature=2,
                                   norm = hyperparameters['norm'],
                                  )
             
@@ -337,7 +342,6 @@ class PVC_NET(pl.LightningModule):
                 yhat, yhat_cls, yhat_rec = yhat
                 loss_objective = self.lossFn(yhat,y)
                 loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
-                # loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_avg_pool1d(y,1)[:,1].squeeze())
                 loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
                 loss_auxilary_con  = F.mse_loss(yhat_cls.squeeze(), F.adaptive_max_pool1d(yhat,1)[:,1].squeeze())
                 loss = loss_objective + .5 * loss_auxilary_cls + .5 * loss_auxilary_rec + .2 * loss_auxilary_con
@@ -349,7 +353,6 @@ class PVC_NET(pl.LightningModule):
             elif self.hyperparameters['mtl'] == 'ALL_avg':
                 yhat, yhat_cls, yhat_rec = yhat
                 loss_objective = self.lossFn(yhat,y)
-                # loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_max_pool1d(y,1)[:,1].squeeze())
                 loss_auxilary_cls  = self.lossFn(yhat_cls.squeeze(), F.adaptive_avg_pool1d(y,1)[:,1].squeeze())
                 loss_auxilary_rec  = F.mse_loss(yhat_rec, x)
                 loss_auxilary_con  = F.mse_loss(yhat_cls.squeeze(), F.adaptive_avg_pool1d(yhat,1)[:,1].squeeze())
@@ -1098,3 +1101,4 @@ def EDA(config_defaults):
         plt.scatter(idx_PVC,[signal_max]*len(idx_PVC),label='PVC',alpha=0.8,marker="v")
         plt.legend()
         plt.show()
+        

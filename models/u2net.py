@@ -14,8 +14,8 @@ import monai
 
 ## upsample tensor 'src' to have the same spatial size with tensor 'tar'
 def _upsample_like(src,tar):
-    src = F.upsample(src,size=tar.shape[2:], mode='linear') # original
-    # src = F.upsample(src,size=tar.shape[2:], mode='nearest') # to deterministic function    
+    # src = F.upsample(src,size=tar.shape[2:], mode='linear') # original
+    src = F.upsample(src,size=tar.shape[2:], mode='nearest') # to deterministic function    
     return src
 
 class REBNCONV(nn.Module):
@@ -27,7 +27,8 @@ class REBNCONV(nn.Module):
             self.bn_s1 = nn.InstanceNorm1d(out_ch)
         elif norm=='batch':
             self.bn_s1 = nn.BatchNorm1d(out_ch)    
-        self.relu_s1 = nn.LeakyReLU(0.1)
+        # self.relu_s1 = nn.LeakyReLU(0.1)
+        self.relu_s1 = nn.GELU()
         self.dropout = nn.Dropout(dropout)
 
     def forward(self,x):

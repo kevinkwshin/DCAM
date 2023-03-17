@@ -42,14 +42,14 @@ class NLBlockND(nn.Module):
         if dimension == 3:
             conv_nd = nn.Conv3d
             max_pool_layer = nn.MaxPool3d(kernel_size=(1, 2, 2))
-            if norm_layer =='batch':
+            if norm_layer =='batch' or 'bn':
                 bn = nn.BatchNorm3d
             elif norm_layer =='instance':
                 bn = nn.InstanceNorm3d            
         elif dimension == 2:
             conv_nd = nn.Conv2d
             max_pool_layer = nn.MaxPool2d(kernel_size=(2, 2))
-            if norm_layer =='batch':
+            if norm_layer =='batch' or 'bn':
                 bn = nn.BatchNorm2d
             elif norm_layer =='instance':
                 bn = nn.InstanceNorm2d
@@ -58,7 +58,7 @@ class NLBlockND(nn.Module):
             # conv_nd = nn.Conv1d if FFT==False else FFC
             # conv_nd = nn.Conv1d if FFT==False else FFC_BN_ACT
             max_pool_layer = nn.MaxPool1d(kernel_size=(2))
-            if norm_layer =='batch':
+            if norm_layer =='batch' or 'bn':
                 bn = nn.BatchNorm1d
             elif norm_layer =='instance':
                 bn = nn.InstanceNorm1d

@@ -154,10 +154,23 @@ def get_Binaryindex(arr):
         idxs.append(int(np.mean([start,end])))
     return idxs
 
+def remove_baseline_wander(signal, fs):    
+    order = 4
+    nyq = 0.5 * fs
+    lowcut = 0.67 #0.5
+    highcut = 50
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    
+    res = filtfilt(b, a, signal)
+    # res = lfilter(b, a, signal)
+    return res
+
 def EDA_zscore(arr_dataset):
     all = []
     for a in arr_dataset:
-        all.append(a['signal'])
+        all.append(remove_baseline_wander(a['signal'],360))
     all = np.array(all)#.flatten().all()
     # all01 = np.percentile(all,1)
     # all[all<all01] = all01

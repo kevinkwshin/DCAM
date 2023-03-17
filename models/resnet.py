@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import monai
 from monai.networks.nets import ResNet, DenseNet, SENet
 from monai.networks.nets.resnet import ResNetBlock#, ResNetBottleneck
 from monai.networks.nets.senet import SEBottleneck, SEResNetBottleneck
@@ -21,7 +22,6 @@ from .nnblock import *
 def get_inplanes():
     return [64, 128, 256, 512]
 
-
 def get_avgpool():
     return [0, 1, (1, 1), (1, 1, 1)]
 
@@ -35,8 +35,8 @@ class ResNetBlock(nn.Module):
         spatial_dims: int = 3,
         stride: int = 1,
         downsample: Union[nn.Module, partial, None] = None,
-        module="acm",
-        # module="none"
+        # module="acm",
+        # module="none",
         norm = 'instance'
     ) -> None:
         """
@@ -58,32 +58,33 @@ class ResNetBlock(nn.Module):
         self.conv1 = conv_type(in_planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
         self.bn1 = norm_type(planes)
         self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.GELU()
         self.conv2 = conv_type(planes, planes, kernel_size=3, padding=1, bias=False)
         self.bn2 = norm_type(planes)
         self.downsample = downsample
         self.stride = stride
         
-        spatial_dims = 1
-        num_acm_groups = 32
-        orthogonal_loss= False
-        # orthogonal_loss= True
+        # spatial_dims = 1
+        # num_acm_groups = 16
+        # orthogonal_loss= False
+        # # orthogonal_loss= True
 
-        if module == "none":
-            self.module = None
-        elif module == 'se':
-            self.module = monai.networks.blocks.ResidualSELayer(spatial_dims,plane)
-        elif module =='nlnn':
-            norm = 'instance'
-            self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
-        elif module =='deeprft':
-            self.module = FFT_ConvBlock(planes,planes)
-        elif module =='cbam':
-            self.module = CBAM(gate_channels=planes, reduction_ratio=16, pool_types=['avg', 'max'])            
-        elif module == 'acm':
-            self.module = ACM(num_heads=num_acm_groups, num_features=planes, orthogonal_loss=orthogonal_loss)
-            self.module.init_parameters()
-        else:
-            raise ValueError("undefined module")
+        # if module == "none":
+        #     self.module = None
+        # elif module == 'se':
+        #     self.module = monai.networks.blocks.ResidualSELayer(spatial_dims, plane)
+        # elif module =='nlnn':
+        #     norm = 'instance'
+        #     self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        # elif module =='deeprft':
+        #     self.module = DeepRFT(planes,planes)
+        # elif module =='cbam':
+        #     self.module = CBAM(gate_channels=planes, reduction_ratio=16, pool_types=['avg', 'max'])            
+        # elif module == 'acm':
+        #     self.module = ACM(num_heads=num_acm_groups, num_features=planes, orthogonal_loss=orthogonal_loss)
+        #     self.module.init_parameters()
+        # else:
+        #     raise ValueError("undefined module")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
 
@@ -105,12 +106,12 @@ class ResNetBlock(nn.Module):
             residual = self.downsample(x)
 
         dp = None
-        if self.module is not None:
-            out = self.module(out)
-            if isinstance(out, tuple):
-                out, dp = out
-                if prev_dp is not None:
-                    dp = prev_dp + dp
+        # if self.module is not None:
+        #     out = self.module(out)
+        #     if isinstance(out, tuple):
+        #         out, dp = out
+        #         if prev_dp is not None:
+        #             dp = prev_dp + dp
 
         out += residual
         out = self.relu(out)
@@ -128,8 +129,8 @@ class ResNetBottleneck(nn.Module):
         spatial_dims: int = 3,
         stride: int = 1,
         downsample: Union[nn.Module, partial, None] = None,
-        module="acm",
-        # module="none"
+        # module="acm",
+        # module="none",
         norm = 'instance'
     ) -> None:
         """
@@ -155,30 +156,31 @@ class ResNetBottleneck(nn.Module):
         self.bn2 = norm_type(planes)
         self.conv3 = conv_type(planes, planes * self.expansion, kernel_size=1, bias=False)
         self.bn3 = norm_type(planes * self.expansion)
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.downsample = downsample
         self.stride = stride
 
-        num_acm_groups = 32
-        orthogonal_loss= False
-        # orthogonal_loss= True
+        # num_acm_groups = 16
+        # orthogonal_loss= False
+        # # orthogonal_loss= True
 
-        if module == "none":
-            self.module = None
-        elif module == 'se':
-            self.module = monai.networks.blocks.ResidualSELayer(spatial_dims,plane)
-        elif module =='nlnn':
-            norm = 'instance'
-            self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
-        elif module =='deeprft':
-            self.module = FFT_ConvBlock(planes,planes)
-        elif module =='cbam':
-            self.module = CBAM(gate_channels=planes, reduction_ratio=16, pool_types=['avg', 'max'])            
-        elif module == 'acm':
-            self.module = ACM(num_heads=num_acm_groups, num_features=planes*4, orthogonal_loss=orthogonal_loss)
-            self.module.init_parameters()
-        else:
-            raise ValueError("undefined module")
+        # if module == "none":
+        #     self.module = None
+        # elif module == 'se':
+        #     self.module = monai.networks.blocks.ResidualSELayer(spatial_dims, plane)
+        # elif module =='nlnn':
+        #     norm = 'instance'
+        #     self.module = NLBlockND(in_channels=planes, mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        # elif module =='deeprft':
+        #     self.module = DeepRFT(planes,planes)
+        # elif module =='cbam':
+        #     self.module = CBAM(gate_channels=planes, reduction_ratio=16, pool_types=['avg', 'max'])            
+        # elif module == 'acm':
+        #     self.module = ACM(num_heads=num_acm_groups, num_features=planes*4, orthogonal_loss=orthogonal_loss)
+        #     self.module.init_parameters()
+        # else:
+        #     raise ValueError("undefined module")
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -205,12 +207,12 @@ class ResNetBottleneck(nn.Module):
             residual = self.downsample(x)
             
         dp = None
-        if self.module is not None:
-            out = self.module(out)
-            if isinstance(out, tuple):
-                out, dp = out
-                if prev_dp is not None:
-                    dp = prev_dp + dp
+        # if self.module is not None:
+        #     out = self.module(out)
+        #     if isinstance(out, tuple):
+        #         out, dp = out
+        #         if prev_dp is not None:
+        #             dp = prev_dp + dp
 
         out += residual
         out = self.relu(out)
@@ -264,7 +266,7 @@ class ResNet(nn.Module):
         num_classes: int = 400,
         feed_forward: bool = True,
         bias_downsample: bool = True,  # for backwards compatibility (also see PR #5477)
-        norm = 'instance'
+        norm = 'instance',
     ) -> None:
 
         super().__init__()
@@ -306,7 +308,8 @@ class ResNet(nn.Module):
             bias=False,
         )
         self.bn1 = norm_type(self.in_planes)
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.maxpool = pool_type(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, block_inplanes[0], layers[0], spatial_dims, shortcut_type)
         self.layer2 = self._make_layer(block, block_inplanes[1], layers[1], spatial_dims, shortcut_type, stride=2)
@@ -418,7 +421,8 @@ class ResNetFeature(ResNet):
             num_classes: int = 400,
             feed_forward: bool = True,
             n_classes: Optional[int] = None,
-            norm = 'instance'
+            norm = 'instance',
+            module = 'none',
         ) -> None:
         super().__init__(block,layers,block_inplanes,spatial_dims,n_input_channels,conv1_t_size,conv1_t_stride,no_max_pool)
         self.spatial_dims= spatial_dims
@@ -430,17 +434,90 @@ class ResNetFeature(ResNet):
         pool_type: Type[Union[nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d]] = Pool[Pool.MAX, spatial_dims]
         self.mpool1 = pool_type(kernel_size=3, stride=2, ceil_mode=True)
         
+        self.module = module
+        self.module1 = nn.Identity()
+        self.module2 = nn.Identity()
+        self.module3 = nn.Identity()
+        self.module4 = nn.Identity()
+        self.module5 = nn.Identity()
+        if module=='acm':
+            self.module1 = ACM(64//8,64)
+            self.module2 = ACM(64//8,64)
+            self.module3 = ACM(128//8,128)
+            self.module4 = ACM(256//8,256)
+            self.module5 = ACM(512//8,512)
+        elif module=='cbam':
+            self.module1 = CBAM(64,64)
+            self.module2 = CBAM(64,64)
+            self.module3 = CBAM(128,128)
+            self.module4 = CBAM(256,256)
+            self.module5 = CBAM(512,512)
+        elif module=='deeprft':
+            self.module1 = DeepRFT(64,64)
+            self.module2 = DeepRFT(64,64)
+            self.module3 = DeepRFT(128,128)
+            self.module4 = DeepRFT(256,256)
+            self.module5 = DeepRFT(512,512)
+        elif module=='ffc':
+            self.module1 = FFC_BN_ACT(64,64,norm_layer=norm)
+            self.module2 = FFC_BN_ACT(64,64,norm_layer=norm)
+            self.module3 = FFC_BN_ACT(128,128,norm_layer=norm)
+            self.module4 = FFC_BN_ACT(256,256,norm_layer=norm)
+            self.module5 = FFC_BN_ACT(512,512,norm_layer=norm)
+        elif module=='mha':
+            featureLength = 1280
+            self.module1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
+            self.module2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01) 
+            self.module3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01) 
+            self.module4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01) 
+            self.module5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)             
+        elif module=='nlnn':
+            self.module1 = NLBlockND(64,dimension=spatial_dims, norm_layer=norm)
+            self.module2 = NLBlockND(64,dimension=spatial_dims, norm_layer=norm)
+            self.module3 = NLBlockND(128,dimension=spatial_dims, norm_layer=norm)
+            self.module4 = NLBlockND(256,dimension=spatial_dims, norm_layer=norm)
+            self.module5 = NLBlockND(512,dimension=spatial_dims, norm_layer=norm)    
+        elif module=='se':
+            self.module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
+            self.module2 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
+            self.module3 = monai.networks.blocks.ResidualSELayer(spatial_dims,128)
+            self.module4 = monai.networks.blocks.ResidualSELayer(spatial_dims,256)
+            self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
+            
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv1(x)
         x1 = self.bn1(x1)
         x1 = self.relu(x1)
         if not self.no_max_pool:
             x1 = self.maxpool(x1)
+
+        if self.module!='mha':
+            x1 = self.module1(x1) 
+        else:  # added
+            x1,_ = self.module1(x1,x1,x1)
         x2 = self.layer1(x1)        
         x2 = self.mpool1(x2)
+        if self.module!='mha':
+            x2 = self.module2(x2) 
+        else:  # added
+            x2,_ = self.module2(x2,x2,x2)
         x3 = self.layer2(x2)
+        if self.module!='mha':
+            x3 = self.module3(x3) 
+        else:  # added
+            x3,_ = self.module3(x3,x3,x3)
         x4 = self.layer3(x3)
+        if self.module!='mha':
+            x4 = self.module4(x4) 
+        else:  # added
+            x4,_ = self.module4(x4,x4,x4)
+
         x5 = self.layer4(x4)
+        if self.module!='mha':
+            x5 = self.module5(x5) 
+        else:  # added
+            x5,_ = self.module5(x5,x5,x5)
+
         return x1, x2, x3, x4, x5
 
 def _resnet(
@@ -454,9 +531,6 @@ def _resnet(
 ) -> ResNet:
     model: ResNetFeature = ResNetFeature(block, layers, block_inplanes, **kwargs)
     if pretrained:
-        # Author of paper zipped the state_dict on googledrive,
-        # so would need to download, unzip and read (2.8gb file for a ~150mb state dict).
-        # Would like to load dict from url but need somewhere to save the state dicts.
         raise NotImplementedError(
             "Currently not implemented. You need to manually download weights provided by the paper's author"
             " and load then to the model with `state_dict`. See https://github.com/Tencent/MedicalNet"

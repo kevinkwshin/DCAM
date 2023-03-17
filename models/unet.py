@@ -8,12 +8,10 @@ from .deeprft import *
 from .ffc import *
 from .nnblock import *
 from .resnet import *
+from .efficientnet import *
 
 import monai
 
-# import math
-# import operator
-# import re
 from functools import reduce
 from typing import List, NamedTuple, Optional, Tuple, Type, Union
 
@@ -21,11 +19,11 @@ import torch
 from torch import nn
 
 from monai.networks.blocks import Convolution, UpSample
-from monai.networks.nets.basic_unet import TwoConv, Down, UpSample, Union
+from monai.networks.nets.basic_unet import TwoConv, UpSample, Union#, Down
 from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
 
-from monai.utils import deprecated_arg, ensure_tuple_rep
+from typing import Optional, Sequence, Tuple, Union
 
 def _upsample_like(src,tar):
     # src = F.upsample(src,size=tar.shape[2:], mode='linear') # original
@@ -39,17 +37,19 @@ class UNet(nn.Module):
         spatial_dims: int = 1,
         in_channels: int = 1,
         out_channels: int = 2,
-        act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": False}),
+        # act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": False}),
+        act: Union[str, tuple] = 'gelu',
         norm: Union[str, tuple] = ("instance", {"affine": True}),
         bias: bool = True,
-        dropout: Union[float, tuple] = 0, # (0.1, {"inplace": True}),
+        dropout: Union[float, tuple] = 0.1, # (0.1, {"inplace": True}),
         upsample: str = "deconv", # [deconv, nontrainable, pixelshuffle]
         supervision = "NONE", #[None,'old','new']
         encModule="NONE",
         decModule="NONE",
         segheadModule ="NONE",
         featureLength = 1280,
-        mtl="NONE"
+        mtl="NONE",
+        temperature = 1,
     ):
         """
         A UNet implementation with 1D/2D/3D supports.
@@ -80,25 +80,36 @@ class UNet(nn.Module):
 
         # U-net encoder
         print(f'UNET encoder is {modelName}')
+        self.modelName = modelName
+        
         if 'efficientnet' in modelName:
             ########################################################## preset init_ch
-            self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=1, norm=norm , num_classes=1000, adv_prop=True)
-            # self.encoder =EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=1, norm=norm , num_classes=1000, adv_prop=True)
-            x_test = torch.rand(2, 1, featureLength)
+            in_channels = 1
+            # self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True)
+            self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True, module=encModule)
+            x_test = torch.rand(2, in_channels, featureLength)
             yhat_test = self.encoder(x_test)
             init_ch = yhat_test[0].shape[1]
             ########################################################## preset init_ch
+
             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
-            self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=init_ch, norm=norm , num_classes=1000, adv_prop=True)
-            # self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=1, in_channels=init_ch, norm=norm , num_classes=1000, adv_prop=True)
+            in_channels = init_ch 
+            # self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True)
+            self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True, module=encModule)
+            print(self.encoder)
+
+            x = torch.rand(2, init_ch, featureLength)
+            yhat = self.encoder(x)
+            fea = [yhat_.shape[1] for yhat_ in yhat]
+            print(fea)
 
         elif 'resnet' in modelName:
             if modelName == 'resnet18':
-                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
+                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm, module=encModule)
             elif modelName == 'resnet34':
-                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
+                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm, module=encModule)
             elif modelName == 'resnet50':
-                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm)
+                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=in_channels, norm=norm, module=encModule)
 
             x_test = torch.rand(2, in_channels, featureLength)
             yhat_test = self.encoder(x_test)
@@ -106,19 +117,29 @@ class UNet(nn.Module):
             ########################################################## preset init_ch
             self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
             if modelName == 'resnet18':
-                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
+                self.encoder = resnet18(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm, module=encModule)
             elif modelName == 'resnet34':
-                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
+                self.encoder = resnet34(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm, module=encModule)
             elif modelName == 'resnet50':
-                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm)
+                self.encoder = resnet50(spatial_dims=spatial_dims, n_input_channels=init_ch, norm=norm, module=encModule)
+            ########################################################## preset init_ch
+ 
+            x = torch.rand(2, init_ch, featureLength)
+            yhat = self.encoder(x)
+            fea = [yhat_.shape[1] for yhat_ in yhat]
+            print(fea)
 
-        else:
-            print('please check modelName')
-        
-        x = torch.rand(2, init_ch, featureLength)
-        yhat = self.encoder(x)
-        fea = [yhat_.shape[1] for yhat_ in yhat]
-        print(fea)
+        elif 'basic' in modelName:            
+            # features = [64, 64, 128, 256, 512, 512]
+            features = [64, 128, 256, 512, 512]
+            fea = features
+            print(fea)
+            self.conv_0 = TwoConv(spatial_dims, in_channels, fea[0], act, norm, bias, dropout)
+            self.down_1 = Down(spatial_dims, fea[0], fea[0], act, norm, bias, dropout)
+            self.down_2 = Down(spatial_dims, fea[0], fea[1], act, norm, bias, dropout)
+            self.down_3 = Down(spatial_dims, fea[1], fea[2], act, norm, bias, dropout)
+            self.down_4 = Down(spatial_dims, fea[2], fea[3], act, norm, bias, dropout)
+            self.down_5 = Down(spatial_dims, fea[3], fea[4], act, norm, bias, dropout)
         
         # skip modules
         self.encModule = encModule
@@ -129,60 +150,60 @@ class UNet(nn.Module):
         self.encModule5 = nn.Identity()
         print(f"U-NET encModule is {encModule}")
 
-        if 'ACM' in encModule:
-            group = 4
-            self.ACMLambda = 0.01
-            if self.ACMLambda==0:
-                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
-                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
-                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
-                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
-                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=False)
-            else:
-                self.encModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=True)
-                self.encModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=True)
-                self.encModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=True)
-                self.encModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=True)
-                self.encModule5 = ACM(num_heads=fea[4]//group, num_features=fea[4], orthogonal_loss=True)
-        elif 'NLNN' in encModule:
-            norms = ['instance','batch']
-            if not norm in norms:
-                norm = None
-            self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-            self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)
-        elif 'FFC' in encModule:
-            self.encModule1 = FFC_BN_ACT(fea[0],fea[0])
-            self.encModule2 = FFC_BN_ACT(fea[1],fea[1])
-            self.encModule3 = FFC_BN_ACT(fea[2],fea[2])
-            self.encModule4 = FFC_BN_ACT(fea[3],fea[3])
-            self.encModule5 = FFC_BN_ACT(fea[4],fea[4])
-        elif 'DEEPRFT' in encModule:
-            self.encModule1 = FFT_ConvBlock(fea[0],fea[0])
-            self.encModule2 = FFT_ConvBlock(fea[1],fea[1])
-            self.encModule3 = FFT_ConvBlock(fea[2],fea[2])
-            self.encModule4 = FFT_ConvBlock(fea[3],fea[3])
-            self.encModule5 = FFT_ConvBlock(fea[4],fea[4])
-        elif 'SE' in encModule:
-            self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])
-            self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
-            self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
-            self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
-            self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
-        elif 'CBAM' in encModule:
-            self.encModule1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max'])
-            self.encModule2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max'])
-            self.encModule3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max'])
-            self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])
-            self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])
-        elif 'MHA' in encModule:
-            self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
-            self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
-            self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
-            self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
-            self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
+        # if 'ACM' in encModule:
+        #     group = 16
+        #     self.ACMLambda = 0.01
+        #     if self.ACMLambda==0:
+        #         self.encModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=False)
+        #         self.encModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=False)
+        #         self.encModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=False)
+        #         self.encModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=False)
+        #         self.encModule5 = ACM(num_heads=group, num_features=fea[4], orthogonal_loss=False)
+        #     else:
+        #         self.encModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=True)
+        #         self.encModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=True)
+        #         self.encModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=True)
+        #         self.encModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=True)
+        #         self.encModule5 = ACM(num_heads=group, num_features=fea[4], orthogonal_loss=True)
+        # elif 'NLNN' in encModule:
+        #     norms = ['instance','batch']
+        #     if not norm in norms:
+        #         norm = None
+        #     self.encModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        #     self.encModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        #     self.encModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        #     self.encModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        #     self.encModule5 = NLBlockND(in_channels=fea[4], mode='embedded', dimension=spatial_dims, norm_layer=norm)
+        # elif 'FFC' in encModule:
+        #     self.encModule1 = FFC_BN_ACT(fea[0],fea[0])
+        #     self.encModule2 = FFC_BN_ACT(fea[1],fea[1])
+        #     self.encModule3 = FFC_BN_ACT(fea[2],fea[2])
+        #     self.encModule4 = FFC_BN_ACT(fea[3],fea[3])
+        #     self.encModule5 = FFC_BN_ACT(fea[4],fea[4])
+        # elif 'DEEPRFT' in encModule:
+        #     self.encModule1 = DeepRFT(fea[0],fea[0])
+        #     self.encModule2 = DeepRFT(fea[1],fea[1])
+        #     self.encModule3 = DeepRFT(fea[2],fea[2])
+        #     self.encModule4 = DeepRFT(fea[3],fea[3])
+        #     self.encModule5 = DeepRFT(fea[4],fea[4])
+        # elif 'SE' in encModule:
+        #     self.encModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0])
+        #     self.encModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
+        #     self.encModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
+        #     self.encModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
+        #     self.encModule5 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[4])
+        # elif 'CBAM' in encModule:
+        #     self.encModule1 = CBAM(gate_channels=fea[0], reduction_ratio=16, pool_types=['avg', 'max'])
+        #     self.encModule2 = CBAM(gate_channels=fea[1], reduction_ratio=16, pool_types=['avg', 'max'])
+        #     self.encModule3 = CBAM(gate_channels=fea[2], reduction_ratio=16, pool_types=['avg', 'max'])
+        #     self.encModule4 = CBAM(gate_channels=fea[3], reduction_ratio=16, pool_types=['avg', 'max'])
+        #     self.encModule5 = CBAM(gate_channels=fea[4], reduction_ratio=16, pool_types=['avg', 'max'])
+        # elif 'MHA' in encModule:
+        #     self.encModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01)
+        #     self.encModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
+        #     self.encModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
+        #     self.encModule4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01)
+        #     self.encModule5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)
             
         # multiTaskCLS
         self.mtl = mtl   
@@ -191,14 +212,19 @@ class UNet(nn.Module):
         print(f"U-NET mtl is {mtl}")
 
         if mtl == "CLS" or "ALL" in mtl:
-            self.mtl_cls = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]),nn.AdaptiveAvgPool1d(1),nn.Conv1d(fea[4],1,1))
+            self.mtl_cls = nn.Sequential(monai.networks.blocks.ResidualSELayer(spatial_dims, fea[4]), nn.AdaptiveAvgPool1d(1), nn.Conv1d(fea[4],1,1))
 
         if mtl == "REC" or "ALL" in mtl:
-            mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
-            mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            # mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act=("prelu", {"init": 0.2}), dropout=0.1, norm=norm)
+            mtl4 = Convolution(spatial_dims=spatial_dims, in_channels=fea[4], out_channels=fea[3], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl3 = Convolution(spatial_dims=spatial_dims, in_channels=fea[3], out_channels=fea[2], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl2 = Convolution(spatial_dims=spatial_dims, in_channels=fea[2], out_channels=fea[1], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl1 = Convolution(spatial_dims=spatial_dims, in_channels=fea[1], out_channels=fea[0], adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
+            mtl0 = Convolution(spatial_dims=spatial_dims, in_channels=fea[0], out_channels=in_channels, adn_ordering="ADN", act='gelu', dropout=0.1, norm=norm)
             self.mtl_rec = nn.Sequential(mtl4,nn.Upsample(scale_factor=2),mtl3,nn.Upsample(scale_factor=2),mtl2,nn.Upsample(scale_factor=2),mtl1,nn.Upsample(scale_factor=2),mtl0,nn.Upsample(scale_factor=2))
         
         # U-Net Decoder
@@ -219,35 +245,29 @@ class UNet(nn.Module):
             self.decModule1 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[0]) # (128x256 and 512x256)
             self.decModule2 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[1])
             self.decModule3 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[2])
-            self.decModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])   
-
+            self.decModule4 = monai.networks.blocks.ResidualSELayer(spatial_dims,fea[3])
         elif 'NN' in self.decModule:
             self.decModule1 = NLBlockND(in_channels=fea[0], mode='embedded', dimension=spatial_dims, norm_layer=norm)
             self.decModule2 = NLBlockND(in_channels=fea[1], mode='embedded', dimension=spatial_dims, norm_layer=norm)
             self.decModule3 = NLBlockND(in_channels=fea[2], mode='embedded', dimension=spatial_dims, norm_layer=norm)
             self.decModule4 = NLBlockND(in_channels=fea[3], mode='embedded', dimension=spatial_dims, norm_layer=norm)               
-
         elif 'FFC' in self.decModule:
             self.decModule1 = FFC_BN_ACT(fea[0],fea[0])
             self.decModule2 = FFC_BN_ACT(fea[1],fea[1])
             self.decModule3 = FFC_BN_ACT(fea[2],fea[2])
             self.decModule4 = FFC_BN_ACT(fea[3],fea[3])
-
         elif 'DEEPRFT' in self.decModule:
-            self.decModule1 = FFT_ConvBlock(fea[0],fea[0])
-            self.decModule2 = FFT_ConvBlock(fea[1],fea[1])
-            self.decModule3 = FFT_ConvBlock(fea[2],fea[2])
-            self.decModule4 = FFT_ConvBlock(fea[3],fea[3])
-            
+            self.decModule1 = DeepRFT(fea[0],fea[0])
+            self.decModule2 = DeepRFT(fea[1],fea[1])
+            self.decModule3 = DeepRFT(fea[2],fea[2])
+            self.decModule4 = DeepRFT(fea[3],fea[3])
         elif 'ACM' in self.decModule:
-            group = 4
-            self.decModule1 = ACM(num_heads=fea[0]//group, num_features=fea[0], orthogonal_loss=False)
-            self.decModule2 = ACM(num_heads=fea[1]//group, num_features=fea[1], orthogonal_loss=False)
-            self.decModule3 = ACM(num_heads=fea[2]//group, num_features=fea[2], orthogonal_loss=False)
-            self.decModule4 = ACM(num_heads=fea[3]//group, num_features=fea[3], orthogonal_loss=False)
-
+            group = 16
+            self.decModule1 = ACM(num_heads=group, num_features=fea[0], orthogonal_loss=False)
+            self.decModule2 = ACM(num_heads=group, num_features=fea[1], orthogonal_loss=False)
+            self.decModule3 = ACM(num_heads=group, num_features=fea[2], orthogonal_loss=False)
+            self.decModule4 = ACM(num_heads=group, num_features=fea[3], orthogonal_loss=False)
         elif 'MHA' in self.decModule:
-            # featureLength = 1280
             self.decModule1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
             self.decModule2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01)
             self.decModule3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01)
@@ -266,18 +286,18 @@ class UNet(nn.Module):
             self.sv4= Conv["conv", spatial_dims](fea[3], out_channels*8, kernel_size=3, padding=1)
             self.sv5= Conv["conv", spatial_dims](fea[4], out_channels*8, kernel_size=3, padding=1)
             supervision_c =  out_channels*8*6
-            
+        print(f'U-NET supervision is {self.supervision}')
         self.segheadModule = segheadModule
         self.segheadModule0 = nn.Identity()
         print(f"U-NET segheadModule is {segheadModule}")
 
         if 'ACM' in segheadModule:
-            group = 4
+            group = 16
             self.ACMLambda = 0
             if self.ACMLambda==0:
-                self.segheadModule0 = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=False)
+                self.segheadModule0 = ACM(num_heads=group, num_features=supervision_c, orthogonal_loss=False)
             else:
-                self.segheadModule0 = ACM(num_heads=supervision_c//group, num_features=supervision_c, orthogonal_loss=True)
+                self.segheadModule0 = ACM(num_heads=group, num_features=supervision_c, orthogonal_loss=True)
 
         elif 'NLNN' in segheadModule:
             norms = ['instance','batch']
@@ -289,7 +309,7 @@ class UNet(nn.Module):
             self.segheadModule0 = FFC_BN_ACT(supervision_c,supervision_c)       
 
         elif 'DEEPRFT' in segheadModule:
-            self.segheadModule0 = FFT_ConvBlock(supervision_c,supervision_c)
+            self.segheadModule0 = DeepRFT(supervision_c,supervision_c)
 
         elif 'SE' in segheadModule:
             self.segheadModule0 = monai.networks.blocks.ResidualSELayer(spatial_dims, supervision_c)
@@ -298,11 +318,12 @@ class UNet(nn.Module):
             self.segheadModule0 = CBAM(gate_channels=supervision_c, reduction_ratio=16, pool_types=['avg', 'max'])
 
         elif 'MHA' in segheadModule:
-            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 2, batch_first=True, dropout=0.01)
+            self.segheadModule0 = nn.MultiheadAttention(featureLength//1, 1, batch_first=True, dropout=0.05)
 
         # self.final_conv = nn.Sequential(self.segheadModule, Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1),)
         self.final_conv = Conv["conv", spatial_dims](supervision_c, out_channels, kernel_size=1)
         self.apply(self._init_weights)
+        self.temperature = temperature
 
     def _init_weights(self, module):
         # set_seed()
@@ -318,48 +339,50 @@ class UNet(nn.Module):
     def forward(self, x: torch.Tensor):
         
         x0 = self.conv_0(x)
-        x1, x2, x3, x4, x5 = self.encoder(x0)
+        if self.modelName !='basic':
+            x1, x2, x3, x4, x5 = self.encoder(x0)
+        else:
+            x1 = self.down_1(x0)
+            x2 = self.down_2(x1)
+            x3 = self.down_3(x2)
+            x4 = self.down_4(x3)
+            x5 = self.down_5(x4)
+            
         dp = False
         dp1 = dp2 = dp3 = dp4 = dp5 = 0.
         
-        if self.encModule=="NONE":
-            pass
-        elif "MHA" in self.encModule:
-            x1,_ = self.encModule1(x1,x1,x1)
-            x2,_ = self.encModule2(x2,x2,x2)
-            x3,_ = self.encModule3(x3,x3,x3)
-            x4,_ = self.encModule4(x4,x4,x4)
-            x5,_ = self.encModule5(x5,x5,x5)
-        else:
-            x1 = self.encModule1(x1)
-            x2 = self.encModule2(x2)
-            x3 = self.encModule3(x3)
-            x4 = self.encModule4(x4)
-            x5 = self.encModule5(x5)
-        
-#             x1 = x1 + self.encModule1(x1)
-#             x2 = x2 + self.encModule2(x2)
-#             x3 = x3 + self.encModule3(x3)
-#             x4 = x4 + self.encModule4(x4)
-#             x5 = x5 + self.encModule5(x5)
+        # if self.encModule=="NONE":
+        #     pass
+        # elif "MHA" in self.encModule:
+        #     x1,_ = self.encModule1(x1,x1,x1)
+        #     x2,_ = self.encModule2(x2,x2,x2)
+        #     x3,_ = self.encModule3(x3,x3,x3)
+        #     x4,_ = self.encModule4(x4,x4,x4)
+        #     x5,_ = self.encModule5(x5,x5,x5)
+        # else:
+        #     x1 = self.encModule1(x1)
+        #     x2 = self.encModule2(x2)
+        #     x3 = self.encModule3(x3)
+        #     x4 = self.encModule4(x4)
+        #     x5 = self.encModule5(x5)
             
-            if isinstance(x1,tuple) or isinstance(x1,list):
-                x1, dp1 = x1
-                dp1 = torch.abs(dp1.mean())
-            if isinstance(x2,tuple) or isinstance(x2,list):
-                x2, dp2 = x2 
-                dp2 = torch.abs(dp2.mean())
-            if isinstance(x3,tuple) or isinstance(x3,list):
-                x3, dp3 = x3 
-                dp3 = torch.abs(dp3.mean())
-            if isinstance(x4,tuple) or isinstance(x4,list):
-                x4, dp4 = x4 
-                dp4 = torch.abs(dp4.mean())
-            if isinstance(x5,tuple) or isinstance(x5,list):
-                x5, dp5 = x5
-                dp5 = torch.abs(dp5.mean())
-            if dp1!=0 or dp2!=0 or dp!=0 or dp4!=0 or dp5!=0:
-                dp = self.ACMLambda * (dp1+dp2+dp3+dp4+dp5)
+        #     if isinstance(x1,tuple) or isinstance(x1,list):
+        #         x1, dp1 = x1
+        #         dp1 = torch.abs(dp1.mean())
+        #     if isinstance(x2,tuple) or isinstance(x2,list):
+        #         x2, dp2 = x2 
+        #         dp2 = torch.abs(dp2.mean())
+        #     if isinstance(x3,tuple) or isinstance(x3,list):
+        #         x3, dp3 = x3 
+        #         dp3 = torch.abs(dp3.mean())
+        #     if isinstance(x4,tuple) or isinstance(x4,list):
+        #         x4, dp4 = x4 
+        #         dp4 = torch.abs(dp4.mean())
+        #     if isinstance(x5,tuple) or isinstance(x5,list):
+        #         x5, dp5 = x5
+        #         dp5 = torch.abs(dp5.mean())
+        #     if dp1!=0 or dp2!=0 or dp!=0 or dp4!=0 or dp5!=0:
+        #         dp = self.ACMLambda * (dp1+dp2+dp3+dp4+dp5)
                                         
         out_cls = None    
         out_rec = None        
@@ -407,13 +430,13 @@ class UNet(nn.Module):
             # print(logits.shape)
                                         
             if "ALL" in self.mtl:
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature), torch.tanh(out_rec/self.temperature)]
             elif self.mtl == "CLS":
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature)]
             elif self.mtl == "REC":
-                return [torch.sigmoid(logits), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.tanh(out_rec/self.temperature)]
             else:
-                return torch.sigmoid(logits)
+                return torch.sigmoid(logits/self.temperature)
 
         elif self.supervision=='new' or self.supervision =='TYPE2':
             s5 = self.sv5(_upsample_like(x5,u0))
@@ -432,13 +455,13 @@ class UNet(nn.Module):
             # print(logits.shape)
 
             if "ALL" in self.mtl:
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature), torch.tanh(out_rec/self.temperature)]
             elif self.mtl == "CLS":
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature)]
             elif self.mtl == "REC":
-                return [torch.sigmoid(logits), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.tanh(out_rec/self.temperature)]
             else:
-                return torch.sigmoid(logits)
+                return torch.sigmoid(logits/self.temperature)
         else:
             if 'MHA' in self.segheadModule:
                 u0,_ = self.segheadModule0(u0,u0,u0)
@@ -448,19 +471,18 @@ class UNet(nn.Module):
             # print(logits.shape)
 
             if "ALL" in self.mtl:
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature), torch.tanh(out_rec/self.temperature)]
             elif self.mtl == "CLS":
-                return [torch.sigmoid(logits), torch.sigmoid(out_cls)]
+                return [torch.sigmoid(logits/self.temperature), torch.sigmoid(out_cls/self.temperature)]
             elif self.mtl == "REC":
-                return [torch.sigmoid(logits), torch.tanh(out_rec)]
+                return [torch.sigmoid(logits/self.temperature), torch.tanh(out_rec/self.temperature)]
             else:
-                return torch.sigmoid(logits)
+                return torch.sigmoid(logits/self.temperature)
 
-    
+
 class UpCat(nn.Module):
     """upsampling, concatenation with the encoder feature map, two convolutions"""
 
-    @deprecated_arg(name="dim", new_name="spatial_dims", since="0.6", msg_suffix="Please use `spatial_dims` instead.")
     def __init__(
         self,
         spatial_dims: int,
@@ -547,3 +569,129 @@ class UpCat(nn.Module):
             x = self.convs(x_0)
 
         return x
+
+
+class SimpleASPP(nn.Module):
+    """
+    A simplified version of the atrous spatial pyramid pooling (ASPP) module.
+
+    Chen et al., Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation.
+    https://arxiv.org/abs/1802.02611
+
+    Wang et al., A Noise-robust Framework for Automatic Segmentation of COVID-19 Pneumonia Lesions
+    from CT Images. https://ieeexplore.ieee.org/document/9109297
+    """
+
+    def __init__(
+        self,
+        spatial_dims: int,
+        in_channels: int,
+        conv_out_channels: int,
+        kernel_sizes: Sequence[int] = (1, 3, 3, 3),
+        dilations: Sequence[int] = (1, 2, 4, 6),
+        norm_type: Optional[Union[Tuple, str]] = "INSTANCE",
+        # acti_type: Optional[Union[Tuple, str]] = "RELU",
+        acti_type: Optional[Union[Tuple, str]] = "GELU",
+        bias: bool = False,
+    ) -> None:
+        """
+        Args:
+            spatial_dims: number of spatial dimensions, could be 1, 2, or 3.
+            in_channels: number of input channels.
+            conv_out_channels: number of output channels of each atrous conv.
+                The final number of output channels is conv_out_channels * len(kernel_sizes).
+            kernel_sizes: a sequence of four convolutional kernel sizes.
+                Defaults to (1, 3, 3, 3) for four (dilated) convolutions.
+            dilations: a sequence of four convolutional dilation parameters.
+                Defaults to (1, 2, 4, 6) for four (dilated) convolutions.
+            norm_type: final kernel-size-one convolution normalization type.
+                Defaults to batch norm.
+            acti_type: final kernel-size-one convolution activation type.
+                Defaults to leaky ReLU.
+            bias: whether to have a bias term in convolution blocks. Defaults to False.
+                According to `Performance Tuning Guide <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html>`_,
+                if a conv layer is directly followed by a batch norm layer, bias should be False.
+
+        Raises:
+            ValueError: When ``kernel_sizes`` length differs from ``dilations``.
+
+        See also:
+
+            :py:class:`monai.networks.layers.Act`
+            :py:class:`monai.networks.layers.Conv`
+            :py:class:`monai.networks.layers.Norm`
+
+        """
+        super().__init__()
+        if len(kernel_sizes) != len(dilations):
+            raise ValueError(
+                "kernel_sizes and dilations length must match, "
+                f"got kernel_sizes={len(kernel_sizes)} dilations={len(dilations)}."
+            )
+        pads = tuple(same_padding(k, d) for k, d in zip(kernel_sizes, dilations))
+
+        self.convs = nn.ModuleList()
+        for k, d, p in zip(kernel_sizes, dilations, pads):
+            _conv = Conv[Conv.CONV, spatial_dims](
+                in_channels=in_channels, out_channels=conv_out_channels, kernel_size=k, dilation=d, padding=p
+            )
+            # self.convs.append(_conv) # original
+            # self.convs.append(nn.Sequential(_conv, DeepRFT(conv_out_channels, conv_out_channels)))
+            self.convs.append(nn.Sequential(_conv, ACM(32, conv_out_channels)))
+        out_channels = conv_out_channels * len(pads)  # final conv. output channels
+        self.conv_k1 = Convolution(
+            spatial_dims=spatial_dims,
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            act=acti_type,
+            norm=norm_type,
+            bias=bias,
+        )
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: in shape (batch, channel, spatial_1[, spatial_2, ...]).
+        """
+        # x_out = torch.cat([conv(x) for conv in self.convs], dim=1)
+        convs = list()
+        for conv in self.convs:
+            convs.append(conv(x))
+        x_out = torch.cat(convs, dim=1)
+        x_out = self.conv_k1(x_out)
+        return x_out
+
+class Down(nn.Sequential):
+    """maxpooling downsampling and two convolutions."""
+
+    def __init__(
+        self,
+        spatial_dims: int,
+        in_chns: int,
+        out_chns: int,
+        act: Union[str, tuple],
+        norm: Union[str, tuple],
+        bias: bool,
+        dropout: Union[float, tuple] = 0.0,
+    ):
+        """
+        Args:
+            spatial_dims: number of spatial dimensions.
+            in_chns: number of input channels.
+            out_chns: number of output channels.
+            act: activation type and arguments.
+            norm: feature normalization type and arguments.
+            bias: whether to have a bias term in convolution blocks.
+            dropout: dropout ratio. Defaults to no dropout.
+
+        """
+        super().__init__()
+        max_pooling = Pool["MAX", spatial_dims](kernel_size=2)
+        aspp = monai.networks.blocks.SimpleASPP(spatial_dims, in_chns, in_chns//4, kernel_sizes= (1, 3, 3, 3), dilations= (1, 2, 4, 6), norm_type=norm, acti_type=act)
+        convs = TwoConv(spatial_dims, in_chns, out_chns, act, norm, bias, dropout)
+        
+        self.add_module("max_pooling", max_pooling)
+        self.add_module("aspp", aspp)
+        self.add_module("convs", convs)
