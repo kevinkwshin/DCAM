@@ -19,6 +19,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
+from .scm import *
 
 __all__ = [
     "EfficientNet",
@@ -375,24 +376,29 @@ class EfficientNet(nn.Module):
                     ),
                 )
                 idx += 1  # increment blocks index counter
+                ################# Modified###############
                 if _ == block_args.num_repeat - 2:
                     module_idx += 1
-                    if module=='acm':
+                    if 'ACM' in module:
                         sub_stack.add_module(module+str(module_idx), ACM(block_args.output_filters//4, block_args.output_filters))
-                    elif module=='cbam':
+                    elif 'CBAM' in module:
                         sub_stack.add_module(module+str(module_idx), CBAM(block_args.output_filters, block_args.output_filters))
-                    elif module=='deeprft':
+                    elif 'DEEPRFT' in module:
                         sub_stack.add_module(module+str(module_idx), DeepRFT(block_args.output_filters, block_args.output_filters))
-                    elif module=='ffc':
+                    elif 'FFC' in module:
                         sub_stack.add_module(module+str(module_idx), FFC_BN_ACT(block_args.output_filters, block_args.output_filters,norm_layer=norm))
-                    # elif module=='mha':
+                    # elif 'MHA':
                     #     module_idx+=1
                     #     featureLength = 1280
                     #     sub_stack.add_module(str(idx), nn.MultiheadAttention(featureLength//(2**module_idx), 8, batch_first=True, dropout=0.01))
-                    elif module=='nlnn':
+                    elif 'NLNN' in module:
                         sub_stack.add_module(module+str(module_idx), NLBlockND(block_args.output_filters,dimension=spatial_dims, norm_layer=norm))
-                    elif module=='se':
+                    elif 'SE' in module:
                         sub_stack.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,block_args.output_filters))
+                    elif 'SCM' in module:
+                        module_type = int(module[-1])
+                        sub_stack.add_module(module+str(module_idx), SCM(block_args.output_filters//4, block_args.output_filters, scm_type=module_type))
+                ################# Modified###############
                     
             self._blocks.add_module(str(stack_idx), sub_stack)
 

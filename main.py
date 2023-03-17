@@ -32,8 +32,8 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
-    encModule = "none", # "SE_BOTTOM5"
+    modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
+    encModule = "SCM", # "SE_BOTTOM5"
     decModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "NONE",
     
@@ -93,8 +93,8 @@ def train():
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
-        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
-        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
+        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
         valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
@@ -133,7 +133,7 @@ def train():
                         # deterministic=False,
                         check_val_every_n_epoch=2,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_epoch_start=0.1, swa_lrs=1e-5)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.2, swa_lrs=1e-4)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.3, swa_lrs=5e-4)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
@@ -231,7 +231,7 @@ class PVC_NET(pl.LightningModule):
         self.thresholdRPeak = self.hyperparameters['thresholdRPeak'] # 0.7
         self.learning_rate = self.hyperparameters['learning_rate']
         self.dataNorm =self.hyperparameters['dataNorm']
-        self.youden_index = 0.3
+        self.youden_index = 0.5
         self.testPlot = False
         
         if self.hyperparameters['norm'] =='layer':

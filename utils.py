@@ -171,6 +171,7 @@ def EDA_zscore(arr_dataset):
     all = []
     for a in arr_dataset:
         all.append(remove_baseline_wander(a['signal'],360))
+        
     all = np.array(all)#.flatten().all()
     # all01 = np.percentile(all,1)
     # all[all<all01] = all01

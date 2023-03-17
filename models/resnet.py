@@ -18,6 +18,8 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
+from .scm import *
+
 
 def get_inplanes():
     return [64, 128, 256, 512]
@@ -440,49 +442,56 @@ class ResNetFeature(ResNet):
         self.module3 = nn.Identity()
         self.module4 = nn.Identity()
         self.module5 = nn.Identity()
-        if module=='acm':
+        if 'ACM' in module:
             self.module1 = ACM(64//8,64)
             self.module2 = ACM(64//8,64)
             self.module3 = ACM(128//8,128)
-            self.module4 = ACM(256//8,256)
-            self.module5 = ACM(512//8,512)
-        elif module=='cbam':
+            self.module4 = ACM(256//8*2,256)
+            self.module5 = ACM(512//8*4,512)
+        elif 'CBAM' in module:
             self.module1 = CBAM(64,64)
             self.module2 = CBAM(64,64)
             self.module3 = CBAM(128,128)
             self.module4 = CBAM(256,256)
             self.module5 = CBAM(512,512)
-        elif module=='deeprft':
+        elif 'DEEPRFT' in module:
             self.module1 = DeepRFT(64,64)
             self.module2 = DeepRFT(64,64)
             self.module3 = DeepRFT(128,128)
             self.module4 = DeepRFT(256,256)
             self.module5 = DeepRFT(512,512)
-        elif module=='ffc':
+        elif 'FFC' in module:
             self.module1 = FFC_BN_ACT(64,64,norm_layer=norm)
             self.module2 = FFC_BN_ACT(64,64,norm_layer=norm)
             self.module3 = FFC_BN_ACT(128,128,norm_layer=norm)
             self.module4 = FFC_BN_ACT(256,256,norm_layer=norm)
             self.module5 = FFC_BN_ACT(512,512,norm_layer=norm)
-        elif module=='mha':
+        elif 'MHA' in module:
             featureLength = 1280
             self.module1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
             self.module2 = nn.MultiheadAttention(featureLength//4, 8, batch_first=True, dropout=0.01) 
             self.module3 = nn.MultiheadAttention(featureLength//8, 8, batch_first=True, dropout=0.01) 
             self.module4 = nn.MultiheadAttention(featureLength//16, 8, batch_first=True, dropout=0.01) 
             self.module5 = nn.MultiheadAttention(featureLength//32, 8, batch_first=True, dropout=0.01)             
-        elif module=='nlnn':
+        elif 'NLNN' in module:
             self.module1 = NLBlockND(64,dimension=spatial_dims, norm_layer=norm)
             self.module2 = NLBlockND(64,dimension=spatial_dims, norm_layer=norm)
             self.module3 = NLBlockND(128,dimension=spatial_dims, norm_layer=norm)
             self.module4 = NLBlockND(256,dimension=spatial_dims, norm_layer=norm)
             self.module5 = NLBlockND(512,dimension=spatial_dims, norm_layer=norm)    
-        elif module=='se':
+        elif 'SE' in module:
             self.module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
             self.module2 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
             self.module3 = monai.networks.blocks.ResidualSELayer(spatial_dims,128)
             self.module4 = monai.networks.blocks.ResidualSELayer(spatial_dims,256)
             self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
+        elif 'SCM' in module:
+            module_type = int(module[-1])
+            self.module1 = SCM(64//8,64,module_type)
+            self.module2 = SCM(64//8,64,module_type)
+            self.module3 = SCM(128//8,128,module_type)
+            self.module4 = SCM(256//8*2,256,module_type)
+            self.module5 = SCM(512//8*4,512,module_type)
             
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv1(x)

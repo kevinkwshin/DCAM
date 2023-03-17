@@ -7,9 +7,10 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
+from .scm import *
+
 from .resnet import *
 from .efficientnet import *
-
 import monai
 
 from functools import reduce
@@ -96,7 +97,6 @@ class UNet(nn.Module):
             in_channels = init_ch 
             # self.encoder = monai.networks.nets.EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True)
             self.encoder = EfficientNetBNFeatures(modelName, pretrained=True, progress=True, spatial_dims=spatial_dims, in_channels=in_channels, norm=norm , num_classes=1000, adv_prop=True, module=encModule)
-            print(self.encoder)
 
             x = torch.rand(2, init_ch, featureLength)
             yhat = self.encoder(x)
