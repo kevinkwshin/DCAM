@@ -7,8 +7,8 @@ metric:
 parameters:
     # dataSeed:
     #     values: [0,1,2,3,4,5,6,7,8]
-    modelName:
-        values: ['resnet34','efficientnet-b0'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
+    # modelName:
+    #     values: ['resnet34','efficientnet-b0'] #'U2NET', 'U2NETP', 'resnet34','resnet50', 'efficientnet-b0', 'efficientnet-b1','efficientnet-b2'
     # norm:
     #     values: ['instance','group','layer','batch']
     # featureLength:
@@ -30,7 +30,7 @@ parameters:
     # encModule:  
     #     values: ['NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',  
     encModule:  
-        values: ['SCM1', 'SCM2', 'SCM3', 'SCM4', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
+        values: ['SCM8','SCM7', 'SCM6', 'SCM5', 'SCM4', 'SCM3', 'SCM2', 'SCM1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
     #     values: ['none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn', 'se'] # 'none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn','se' 
     # decModule:
     #     values: ['NONE', 'ACM', 'CBAM', 'MHA', 'NLNN', 'SE'] # 'NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE']

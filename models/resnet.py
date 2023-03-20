@@ -59,8 +59,8 @@ class ResNetBlock(nn.Module):
 
         self.conv1 = conv_type(in_planes, planes, kernel_size=3, padding=1, stride=stride, bias=False)
         self.bn1 = norm_type(planes)
-        self.relu = nn.ReLU(inplace=True)
-        # self.relu = nn.GELU()
+        # self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.GELU()
         self.conv2 = conv_type(planes, planes, kernel_size=3, padding=1, bias=False)
         self.bn2 = norm_type(planes)
         self.downsample = downsample
@@ -487,11 +487,23 @@ class ResNetFeature(ResNet):
             self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
         elif 'SCM' in module:
             module_type = int(module[-1])
-            self.module1 = SCM(64//8,64,module_type)
-            self.module2 = SCM(64//8,64,module_type)
-            self.module3 = SCM(128//8,128,module_type)
-            self.module4 = SCM(256//8*2,256,module_type)
-            self.module5 = SCM(512//8*4,512,module_type)
+            # self.module1 = SCM(64//8,64,module_type)
+            # self.module2 = SCM(64//8,64,module_type)
+            # self.module3 = SCM(128//8,128,module_type)
+            # self.module4 = SCM(256//8*2,256,module_type)
+            # self.module5 = SCM(512//8*4,512,module_type)
+            
+            # self.module1 = SCM(64//4,64,module_type) #16
+            # self.module2 = SCM(64//4,64,module_type)
+            # self.module3 = SCM(128//8,128,module_type)
+            # self.module4 = SCM(256//8*2,256,module_type)
+            # self.module5 = SCM(512//8*4,512,module_type)
+            
+            self.module1 = SCM(32,64,module_type) #32
+            self.module2 = SCM(32,64,module_type)
+            self.module3 = SCM(32,128,module_type)
+            self.module4 = SCM(32,256,module_type)
+            self.module5 = SCM(32,512,module_type)
             
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv1(x)

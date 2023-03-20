@@ -32,8 +32,8 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='efficientnet-b0', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
-    encModule = "SCM", # "SE_BOTTOM5"
+    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
+    encModule = "SCM9", # "SE_BOTTOM5"
     decModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "NONE",
     
@@ -93,11 +93,11 @@ def train():
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
-        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
-        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
+        # valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//8, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(valid_dataset), drop_last=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//8, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
     else:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = True, num_workers=NUM_WORKERS//4, pin_memory=True, drop_last=True)
-        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//4, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
+        valid_loader = DataLoader(valid_dataset, batch_size = model.hyperparameters['batch_size']//8, shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True)
 
     batch_size = model.hyperparameters['batch_size']
     test_loader     = DataLoader(test_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
@@ -114,7 +114,7 @@ def train():
     wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch')
-    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=20, verbose=False)
+    early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=10, verbose=False)
     loss_checkpoint_callback = ModelCheckpoint(monitor='val_loss', mode='min', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_loss", save_top_k=1, verbose=False)
     # metric_checkpoint_callback = ModelCheckpoint(monitor='val_AUPRC_Class1Raw', mode='max', dirpath=f"{wandb.config.path_logRoot}/{model.experiment_name}/weight/", filename="best_val_metric", save_top_k=1, verbose=False)
 
@@ -133,7 +133,7 @@ def train():
                         # deterministic=False,
                         check_val_every_n_epoch=2,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_epoch_start=0.1, swa_lrs=1e-5)], #
-                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.3, swa_lrs=5e-4)], #
+                        callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.2, swa_lrs=5e-4)], #
                         logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )

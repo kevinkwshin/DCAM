@@ -29,14 +29,14 @@ class SCM(nn.Module):
         self.add_mod = AttendModule(self.num_features, num_heads=num_heads)
         self.sub_mod = AttendModule(self.num_features, num_heads=num_heads)
         self.mul_mod = ModulateModule(channel=self.num_features, num_groups=num_heads, compressions=2)
-
-        self.scm_type = scm_type
-        self.init_parameters()
         
         self.conv  = nn.Conv1d(num_features, num_features, kernel_size=3, stride=1, padding=1)
         self.fft_conv  = nn.Conv1d(num_features*2, num_features*2, kernel_size=1, stride=1, padding=0)
         self.norm1 = nn.InstanceNorm1d(num_features)
         self.norm2 = nn.InstanceNorm1d(num_features*2)
+        
+        self.scm_type = scm_type
+        self.init_parameters()
 
     def init_parameters(self):
         if self.add_mod is not None:
@@ -55,7 +55,6 @@ class SCM(nn.Module):
 
         # creates multipying feature
         mul_feature = self.mul_mod(mu)  # P
-        # print('mul_feature', mul_feature.shape)
 
         # creates add or sub feature
         add_feature = self.add_mod(x_mu)  # K
@@ -69,19 +68,36 @@ class SCM(nn.Module):
         fft = torch.fft.irfft(fft, norm='ortho')
 
         ts = F.gelu(self.norm1(self.conv(x)))
-
-        y = (x + F.gelu(add_feature - sub_feature) + ts + fft) * mul_feature
         
         if self.scm_type == 1:
             y = (x + add_feature - sub_feature) * mul_feature
         elif self.scm_type == 2:
-            y = (x + add_feature - sub_feature + ts + fft) * mul_feature
+            y = (x + ts + fft)
         elif self.scm_type == 3:
-            y = (x + F.gelu(add_feature - sub_feature) + ts + fft) * mul_feature
+            y = (x + add_feature - sub_feature + ts + fft)
         elif self.scm_type == 4:
-            y = (x + F.gelu(self.norm1(add_feature - sub_feature)) + ts + fft) * mul_feature
+            y = (x + add_feature - sub_feature) * mul_feature + ts + fft
+        elif self.scm_type == 5:
+            y = (x + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
+        elif self.scm_type == 6:
+            y = (x + add_feature - sub_feature + ts + fft) * mul_feature
+        elif self.scm_type == 7:
+            y = (x + F.gelu(add_feature - sub_feature) + ts + fft) * mul_feature
+        elif self.scm_type == 8:
+            y = (self.norm1(x) + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
+            y = F.gelu(y)
+        elif self.scm_type == 9:
+            
+            y = (x + add_feature - sub_feature) * mul_feature
+            x_mu_fft = fft - fft.mean([2], keepdim=True)
+            
+            mul_feature = self.mul_mod(x_mu_fft)  # P
+            add_feature = self.add_mod(x_mu_fft)  # K
+            sub_feature = self.sub_mod(x_mu_fft)  # Q
+            y = y + (x + F.gelu(add_feature - sub_feature)) * mul_feature
+            y = y + ts + fft
 
-        return y
+        return y 
 
 class AttendModule(nn.Module):
 
@@ -111,8 +127,6 @@ class AttendModule(nn.Module):
         b, c, h = xhats.shape
         # xhat reshape
         xhats_reshape = xhats.view(b * self.num_heads, self.num_c_per_head, h)
-        # print('xhats_reshape',xhats_reshape.shape)
-        # xhats_reshape = xhats_reshape.view(b * self.num_heads, self.num_c_per_head, h)
         # print('xhats_reshape',xhats_reshape.shape)
 
         # weight reshape
@@ -175,3 +189,4 @@ class ModulateModule(nn.Module):
     def forward(self, x):
         y = self.feature_gen(x)
         return y
+    
