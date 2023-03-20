@@ -6,7 +6,7 @@ os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
 # export http_proxy=http://192.168.45.100:3128
 # export https_proxy=https://192.168.45.100:3128
 
-# !pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet
+# !pip install neurokit2 wfdb monai==1.1.0 pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet
 # os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
 gpus= "0,1,2,3"
@@ -32,8 +32,8 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='resnet34', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'U2NET','U2NETP', 'basis'
-    encModule = "SCM9", # "SE_BOTTOM5"
+    modelName='densenet121', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'densenet169', 'U2NET','U2NETP', 'basis'
+    encModule = "SCM11", # "SE_BOTTOM5"
     decModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "NONE",
     
@@ -242,7 +242,7 @@ class PVC_NET(pl.LightningModule):
             norm = self.hyperparameters['norm']
         
         # define model using hyperparamters
-        if 'efficient' in hyperparameters['modelName'] or 'resnet' in hyperparameters['modelName'] or 'basic' in hyperparameters['modelName']:
+        if 'efficient' in hyperparameters['modelName'] or 'resnet' in hyperparameters['modelName'] or 'densenet' in hyperparameters['modelName'] or 'basic' in hyperparameters['modelName']:
             self.net = nets.UNet(modelName = hyperparameters['modelName'], 
                             spatial_dims = hyperparameters['spatial_dims'],
                             in_channels = hyperparameters['inChannels'],

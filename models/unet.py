@@ -9,6 +9,7 @@ from .ffc import *
 from .nnblock import *
 from .scm import *
 
+from .densenet import *
 from .resnet import *
 from .efficientnet import *
 import monai
@@ -129,6 +130,32 @@ class UNet(nn.Module):
             fea = [yhat_.shape[1] for yhat_ in yhat]
             print(fea)
 
+        elif 'densenet' in modelName:
+            if modelName == 'densenet121':
+                self.encoder = densenet121( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet169':
+                self.encoder = densenet169( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet201':
+                self.encoder = densenet201( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+
+            x_test = torch.rand(2, in_channels, featureLength)
+            yhat_test = self.encoder(x_test)
+            init_ch = yhat_test[0].shape[1]
+            ########################################################## preset init_ch
+            self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
+            if modelName == 'densenet121':
+                self.encoder = densenet121( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet169':
+                self.encoder = densenet169( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet201':
+                self.encoder = densenet201( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            ########################################################## preset init_ch
+ 
+            x = torch.rand(2, init_ch, featureLength)
+            yhat = self.encoder(x)
+            fea = [yhat_.shape[1] for yhat_ in yhat]
+            print(fea)
+            
         elif 'basic' in modelName:            
             # features = [64, 64, 128, 256, 512, 512]
             features = [64, 128, 256, 512, 512]

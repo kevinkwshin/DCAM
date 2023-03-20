@@ -396,8 +396,8 @@ class EfficientNet(nn.Module):
                     elif 'SE' in module:
                         sub_stack.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,block_args.output_filters))
                     elif 'SCM' in module:
-                        module_type = int(module[-1])
-                        sub_stack.add_module(module+str(module_idx), SCM(block_args.output_filters//4, block_args.output_filters, scm_type=module_type))
+                        module_type = int(module.replace('SCM',''))
+                        sub_stack.add_module(module+str(module_idx), SCM(4, block_args.output_filters, scm_type=module_type))
                 ################# Modified###############
                     
             self._blocks.add_module(str(stack_idx), sub_stack)

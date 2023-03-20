@@ -486,7 +486,7 @@ class ResNetFeature(ResNet):
             self.module4 = monai.networks.blocks.ResidualSELayer(spatial_dims,256)
             self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
         elif 'SCM' in module:
-            module_type = int(module[-1])
+            module_type = int(module.replace('SCM',''))
             # self.module1 = SCM(64//8,64,module_type)
             # self.module2 = SCM(64//8,64,module_type)
             # self.module3 = SCM(128//8,128,module_type)

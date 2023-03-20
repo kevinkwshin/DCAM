@@ -30,7 +30,7 @@ parameters:
     # encModule:  
     #     values: ['NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',  
     encModule:  
-        values: ['SCM8','SCM7', 'SCM6', 'SCM5', 'SCM4', 'SCM3', 'SCM2', 'SCM1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
+        values: ['SCM11','SCM10','SCM8','SCM8','SCM7', 'SCM6', 'SCM5', 'SCM4', 'SCM3', 'SCM2', 'SCM1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
     #     values: ['none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn', 'se'] # 'none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn','se' 
     # decModule:
     #     values: ['NONE', 'ACM', 'CBAM', 'MHA', 'NLNN', 'SE'] # 'NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE']

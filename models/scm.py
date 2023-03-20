@@ -87,7 +87,6 @@ class SCM(nn.Module):
             y = (self.norm1(x) + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
             y = F.gelu(y)
         elif self.scm_type == 9:
-            
             y = (x + add_feature - sub_feature) * mul_feature
             x_mu_fft = fft - fft.mean([2], keepdim=True)
             
@@ -97,6 +96,22 @@ class SCM(nn.Module):
             y = y + (x + F.gelu(add_feature - sub_feature)) * mul_feature
             y = y + ts + fft
 
+        elif self.scm_type == 10:
+            y = (x + add_feature - sub_feature) * mul_feature
+            
+            mul_feature = self.mul_mod(fft)  # P
+            add_feature = self.add_mod(fft)  # K
+            sub_feature = self.sub_mod(fft)  # Q
+            y = y + (x + F.gelu(add_feature - sub_feature)) * mul_feature
+            
+        elif self.scm_type == 11:
+            y = (x + add_feature - sub_feature) * mul_feature
+            
+            mul_feature = self.mul_mod(fft)  # P
+            add_feature = self.add_mod(fft)  # K
+            sub_feature = self.sub_mod(fft)  # Q
+            y = y + (x + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
+            
         return y 
 
 class AttendModule(nn.Module):
