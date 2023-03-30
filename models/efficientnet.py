@@ -393,11 +393,16 @@ class EfficientNet(nn.Module):
                     #     sub_stack.add_module(str(idx), nn.MultiheadAttention(featureLength//(2**module_idx), 8, batch_first=True, dropout=0.01))
                     elif 'NLNN' in module:
                         sub_stack.add_module(module+str(module_idx), NLBlockND(block_args.output_filters,dimension=spatial_dims, norm_layer=norm))
-                    elif 'SE' in module:
-                        sub_stack.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,block_args.output_filters))
                     elif 'SCM' in module:
-                        module_type = int(module[-1])
-                        sub_stack.add_module(module+str(module_idx), SCM(block_args.output_filters//4, block_args.output_filters, scm_type=module_type))
+                        if 'SE' in module:
+                            module_type = int(module.replace('SESCM','').replace('SCM',''))
+                            sub_stack.add_module('SESCM'+str(module_idx), SCM(4, in_channels, scm_type=module_type,se=True))
+                        else:
+                            module_type = int(module.replace('SESCM','').replace('SCM',''))
+                            self.features.add_module('SCM'+str(module_idx), SCM(4, in_channels, scm_type=module_type,se=False))
+                    elif 'SE' in module:
+                        sub_stack.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))    
+
                 ################# Modified###############
                     
             self._blocks.add_module(str(stack_idx), sub_stack)

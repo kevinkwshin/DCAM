@@ -1,5 +1,5 @@
 program: train.py
-name :  Sweep_ResNet # sweep run name!!
+name :  Sweep_ResNet_Other # sweep run name!!
 method: grid # bayes, grid
 metric:
     name: testAMC_F1_Class1Raw
@@ -28,9 +28,13 @@ parameters:
     # trainaug:
     #     values: ['NONE', 'NEUROKIT2']
     # encModule:  
-    #     values: ['NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',  
+    #     values: ['NONE', 'ACM', 'CBAM', 'DEEPRFT', 'NLNN', 'SE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',  
     encModule:  
-        values: ['SCM8','SCM7', 'SCM6', 'SCM5', 'SCM4', 'SCM3', 'SCM2', 'SCM1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
+        values: ['NONE', 'SCM12','SCM11','SCM10','SCM9','SCM8','SCM7', 'SCM6',
+                 'SESCM12','SESCM11','SESCM10','SESCM9','SESCM8','SESCM7', 'SESCM6', 
+                ] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
+    # encModule:  
+    #     values: ['SCM12','SCM11','SCM10','SCM9','SCM8','SCM7', 'SCM6', 'SCM5', 'SCM4', 'SCM3', 'SCM2', 'SCM1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
     #     values: ['none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn', 'se'] # 'none', 'acm', 'cbam', 'deeprft', 'ffc', 'nlnn','se' 
     # decModule:
     #     values: ['NONE', 'ACM', 'CBAM', 'MHA', 'NLNN', 'SE'] # 'NONE', 'ACM', 'CBAM', 'DEEPRFT', 'FFC', 'MHA', 'NLNN', 'SE']

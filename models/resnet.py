@@ -442,6 +442,7 @@ class ResNetFeature(ResNet):
         self.module3 = nn.Identity()
         self.module4 = nn.Identity()
         self.module5 = nn.Identity()
+  
         if 'ACM' in module:
             self.module1 = ACM(64//8,64)
             self.module2 = ACM(64//8,64)
@@ -479,14 +480,8 @@ class ResNetFeature(ResNet):
             self.module3 = NLBlockND(128,dimension=spatial_dims, norm_layer=norm)
             self.module4 = NLBlockND(256,dimension=spatial_dims, norm_layer=norm)
             self.module5 = NLBlockND(512,dimension=spatial_dims, norm_layer=norm)    
-        elif 'SE' in module:
-            self.module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
-            self.module2 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
-            self.module3 = monai.networks.blocks.ResidualSELayer(spatial_dims,128)
-            self.module4 = monai.networks.blocks.ResidualSELayer(spatial_dims,256)
-            self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
         elif 'SCM' in module:
-            module_type = int(module[-1])
+            # module_type = int(module.replace('SCM',''))
             # self.module1 = SCM(64//8,64,module_type)
             # self.module2 = SCM(64//8,64,module_type)
             # self.module3 = SCM(128//8,128,module_type)
@@ -498,12 +493,29 @@ class ResNetFeature(ResNet):
             # self.module3 = SCM(128//8,128,module_type)
             # self.module4 = SCM(256//8*2,256,module_type)
             # self.module5 = SCM(512//8*4,512,module_type)
-            
-            self.module1 = SCM(32,64,module_type) #32
-            self.module2 = SCM(32,64,module_type)
-            self.module3 = SCM(32,128,module_type)
-            self.module4 = SCM(32,256,module_type)
-            self.module5 = SCM(32,512,module_type)
+            if 'SE' in module:
+                module_type = int(module.replace('SESCM','').replace('SCM',''))
+                se = True
+                self.module1 = SCM(32,64,module_type,se=se) #32
+                self.module2 = SCM(32,64,module_type,se=se)
+                self.module3 = SCM(32,128,module_type,se=se)
+                self.module4 = SCM(32,256,module_type,se=se)
+                self.module5 = SCM(32,512,module_type,se=se)
+            else:
+                module_type = int(module.replace('SESCM','').replace('SCM',''))
+                se = False
+                self.module1 = SCM(32,64,module_type,se=se) #32
+                self.module2 = SCM(32,64,module_type,se=se)
+                self.module3 = SCM(32,128,module_type,se=se)
+                self.module4 = SCM(32,256,module_type,se=se)
+                self.module5 = SCM(32,512,module_type,se=se)
+
+        elif 'SE' in module:
+            self.module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
+            self.module2 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
+            self.module3 = monai.networks.blocks.ResidualSELayer(spatial_dims,128)
+            self.module4 = monai.networks.blocks.ResidualSELayer(spatial_dims,256)
+            self.module5 = monai.networks.blocks.ResidualSELayer(spatial_dims,512)
             
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x1 = self.conv1(x)

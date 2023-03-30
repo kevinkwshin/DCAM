@@ -9,6 +9,7 @@ from .ffc import *
 from .nnblock import *
 from .scm import *
 
+from .densenet import *
 from .resnet import *
 from .efficientnet import *
 import monai
@@ -129,6 +130,32 @@ class UNet(nn.Module):
             fea = [yhat_.shape[1] for yhat_ in yhat]
             print(fea)
 
+        elif 'densenet' in modelName:
+            if modelName == 'densenet121':
+                self.encoder = densenet121( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet169':
+                self.encoder = densenet169( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet201':
+                self.encoder = densenet201( spatial_dims=spatial_dims, in_channels=in_channels, out_channels=1000, norm=norm, module=encModule)
+
+            x_test = torch.rand(2, in_channels, featureLength)
+            yhat_test = self.encoder(x_test)
+            init_ch = yhat_test[0].shape[1]
+            ########################################################## preset init_ch
+            self.conv_0 = TwoConv(spatial_dims, in_channels, init_ch, act, norm, bias, dropout)
+            if modelName == 'densenet121':
+                self.encoder = densenet121( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet169':
+                self.encoder = densenet169( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            elif modelName == 'densenet201':
+                self.encoder = densenet201( spatial_dims=spatial_dims, in_channels=init_ch, out_channels=1000, norm=norm, module=encModule)
+            ########################################################## preset init_ch
+ 
+            x = torch.rand(2, init_ch, featureLength)
+            yhat = self.encoder(x)
+            fea = [yhat_.shape[1] for yhat_ in yhat]
+            print(fea)
+            
         elif 'basic' in modelName:            
             # features = [64, 64, 128, 256, 512, 512]
             features = [64, 128, 256, 512, 512]
@@ -286,6 +313,14 @@ class UNet(nn.Module):
             self.sv4= Conv["conv", spatial_dims](fea[3], out_channels*8, kernel_size=3, padding=1)
             self.sv5= Conv["conv", spatial_dims](fea[4], out_channels*8, kernel_size=3, padding=1)
             supervision_c =  out_channels*8*6
+        elif supervision =='TYPE3':
+            self.sv0= nn.Sequential(Conv["conv", spatial_dims](fea[0], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+            self.sv1= nn.Sequential(Conv["conv", spatial_dims](fea[0], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+            self.sv2= nn.Sequential(Conv["conv", spatial_dims](fea[1], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+            self.sv3= nn.Sequential(Conv["conv", spatial_dims](fea[2], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+            self.sv4= nn.Sequential(Conv["conv", spatial_dims](fea[3], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+            self.sv5= nn.Sequential(Conv["conv", spatial_dims](fea[4], out_channels*8, kernel_size=3, padding=1),Conv["conv", spatial_dims](out_channels*8, 2, kernel_size=3, padding=1))
+
         print(f'U-NET supervision is {self.supervision}')
         self.segheadModule = segheadModule
         self.segheadModule0 = nn.Identity()
@@ -689,9 +724,11 @@ class Down(nn.Sequential):
         """
         super().__init__()
         max_pooling = Pool["MAX", spatial_dims](kernel_size=2)
-        aspp = monai.networks.blocks.SimpleASPP(spatial_dims, in_chns, in_chns//4, kernel_sizes= (1, 3, 3, 3), dilations= (1, 2, 4, 6), norm_type=norm, acti_type=act)
+        # aspp = monai.networks.blocks.SimpleASPP(spatial_dims, in_chns, in_chns//4, kernel_sizes= (1, 3, 3, 3), dilations= (1, 2, 4, 6), norm_type=norm, acti_type=act)
         convs = TwoConv(spatial_dims, in_chns, out_chns, act, norm, bias, dropout)
+        tfcam = SCM(32,out_chns,11,True)
         
         self.add_module("max_pooling", max_pooling)
-        self.add_module("aspp", aspp)
-        self.add_module("convs", convs)
+        # self.add_module("aspp", aspp)
+        self.add_module("convs", convs)        
+        self.add_module("tfcam", tfcam)
