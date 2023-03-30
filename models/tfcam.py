@@ -212,9 +212,9 @@ class TFCAM(nn.Module):
         ts = F.gelu(self.norm1(self.conv(x)))
         
         if self.tfcam_type == 1:
-            y = (x + add_feature - sub_feature) * mul_feature
+            y = (x + add_feature - sub_feature) * mul_feature # ACM == TCAM
         elif self.tfcam_type == 2:
-            y = (x + ts + fft)
+            y = (x + ts + fft) # DeepRFT
         elif self.tfcam_type == 3:
             y = (x + add_feature - sub_feature + ts + fft)
         elif self.tfcam_type == 4:
@@ -253,14 +253,14 @@ class TFCAM(nn.Module):
             mul_feature = self.mul_mod(fft)  # P
             add_feature = self.add_mod(fft)  # K
             sub_feature = self.sub_mod(fft)  # Q
-            y = y + (fft + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
+            y = y + (fft + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft  # TFCAM
             
         elif self.tfcam_type == 12:
-            # y = (x + add_feature - sub_feature) * mul_feature
+            # y = (x + add_feature - sub_feature) * mul_feature 
             mul_feature = self.mul_mod(fft)  # P
             add_feature = self.add_mod(fft)  # K
             sub_feature = self.sub_mod(fft)  # Q
-            y = (fft + F.gelu(add_feature - sub_feature)) * mul_feature
+            y = (fft + F.gelu(add_feature - sub_feature)) * mul_feature # FCAM
             
         if self.se!= False:
             b, c = y.shape[:2]
