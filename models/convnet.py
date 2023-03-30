@@ -18,7 +18,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
-from .scm import *
+from .tfcam import *
 
 class SimpleASPP(nn.Module):
     """

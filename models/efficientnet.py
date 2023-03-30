@@ -19,7 +19,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
-from .scm import *
+from .tfcam import *
 
 __all__ = [
     "EfficientNet",

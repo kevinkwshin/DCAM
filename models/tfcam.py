@@ -127,21 +127,21 @@ from monai.networks.layers.factories import Act, Conv, Norm, Pool, split_args
 #             add_residual=True,
 #         )
 
-class SCM(nn.Module):
+class TFCAM(nn.Module):
     """
     if __name__ == '__main__':
         import torch
         x1 = torch.randn(256 * 20 * 20 * 5).view(5, 256, 20, 20).float()
         x1 = torch.rand(2, 320, 160).float()
-        scm = SCM(num_heads=32, num_features=320)
-        scm.init_parameters()
-        y, dp = scm(x1)
+        tfcam = tfcam(num_heads=32, num_features=320)
+        tfcam.init_parameters()
+        y, dp = tfcam(x1)
         print(y.shape)
         print(dp.shape)
 
     """
-    def __init__(self, num_heads, num_features, scm_type=4, se= False):
-        super(SCM, self).__init__()
+    def __init__(self, num_heads, num_features, tfcam_type=4, se= False):
+        super(TFCAM, self).__init__()
 
         assert num_features % num_heads == 0
 
@@ -177,7 +177,7 @@ class SCM(nn.Module):
         else:
             self.se = False
 
-        self.scm_type = scm_type
+        self.tfcam_type = tfcam_type
         self.init_parameters()
 
     def init_parameters(self):
@@ -211,25 +211,25 @@ class SCM(nn.Module):
 
         ts = F.gelu(self.norm1(self.conv(x)))
         
-        if self.scm_type == 1:
+        if self.tfcam_type == 1:
             y = (x + add_feature - sub_feature) * mul_feature
-        elif self.scm_type == 2:
+        elif self.tfcam_type == 2:
             y = (x + ts + fft)
-        elif self.scm_type == 3:
+        elif self.tfcam_type == 3:
             y = (x + add_feature - sub_feature + ts + fft)
-        elif self.scm_type == 4:
+        elif self.tfcam_type == 4:
             y = (x + add_feature - sub_feature) * mul_feature + ts + fft
-        elif self.scm_type == 5:
+        elif self.tfcam_type == 5:
             y = (x + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
-        elif self.scm_type == 6:
+        elif self.tfcam_type == 6:
             y = (x + add_feature - sub_feature + ts + fft) * mul_feature
-        elif self.scm_type == 7:
+        elif self.tfcam_type == 7:
             y = (x + F.gelu(add_feature - sub_feature) + ts + fft) * mul_feature
-        elif self.scm_type == 8:
+        elif self.tfcam_type == 8:
             y = (self.norm1(x) + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
             y = F.gelu(y)
             
-        elif self.scm_type == 9:
+        elif self.tfcam_type == 9:
             y = (x + add_feature - sub_feature) * mul_feature
             x_mu_fft = fft - fft.mean([2], keepdim=True)
             
@@ -239,7 +239,7 @@ class SCM(nn.Module):
             y = y + (x + F.gelu(add_feature - sub_feature)) * mul_feature
             y = y + ts + fft
 
-        elif self.scm_type == 10:
+        elif self.tfcam_type == 10:
             y = (x + add_feature - sub_feature) * mul_feature
             
             mul_feature = self.mul_mod(fft)  # P
@@ -247,7 +247,7 @@ class SCM(nn.Module):
             sub_feature = self.sub_mod(fft)  # Q
             y = y + (fft + F.gelu(add_feature - sub_feature)) * mul_feature
             
-        elif self.scm_type == 11:
+        elif self.tfcam_type == 11:
             y = (x + add_feature - sub_feature) * mul_feature
             
             mul_feature = self.mul_mod(fft)  # P
@@ -255,7 +255,7 @@ class SCM(nn.Module):
             sub_feature = self.sub_mod(fft)  # Q
             y = y + (fft + F.gelu(add_feature - sub_feature)) * mul_feature + ts + fft
             
-        elif self.scm_type == 12:
+        elif self.tfcam_type == 12:
             # y = (x + add_feature - sub_feature) * mul_feature
             mul_feature = self.mul_mod(fft)  # P
             add_feature = self.add_mod(fft)  # K

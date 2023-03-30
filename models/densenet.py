@@ -17,7 +17,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
-from .scm import *
+from .tfcam import *
 
 __all__ = [
     "DenseNet",
@@ -216,9 +216,9 @@ class _Transition(nn.Sequential):
 #             self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
 #         elif 'SE' in module:
 #             self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))        
-#         elif 'SCM' in module:
-#             module_type = int(module.replace('SCM',''))
-#             self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type))
+#         elif 'TFCAM' in module:
+#             module_type = int(module.replace('TFCAM',''))
+#             self.features.add_module('TFCAM'+str(module_idx), TFCAM(32, in_channels, tfcam_type=module_type))
 #         module_idx += 1
 #         ################################################################
                     
@@ -256,9 +256,9 @@ class _Transition(nn.Sequential):
 #                     self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
 #                 elif 'SE' in module:
 #                     self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))        
-#                 elif 'SCM' in module:
-#                     module_type = int(module.replace('SCM',''))
-#                     self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type))
+#                 elif 'TFCAM' in module:
+#                     module_type = int(module.replace('TFCAM',''))
+#                     self.features.add_module('TFCAM'+str(module_idx), TFCAM(32, in_channels, tfcam_type=module_type))
 #                 module_idx += 1
 #                 ################################################################   
                 
@@ -280,9 +280,9 @@ class _Transition(nn.Sequential):
 #                     self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
 #                 elif 'SE' in module:
 #                     self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))        
-#                 elif 'SCM' in module:
-#                     module_type = int(module.replace('SCM',''))
-#                     self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type))
+#                 elif 'TFCAM' in module:
+#                     module_type = int(module.replace('TFCAM',''))
+#                     self.features.add_module('TFCAM'+str(module_idx), TFCAM(32, in_channels, tfcam_type=module_type))
 #                 module_idx += 1
 #                 ################################################################   
                 
@@ -394,13 +394,19 @@ class DenseNet(nn.Module):
         #     sub_stack.add_module(str(idx), nn.MultiheadAttention(featureLength//(2**module_idx), 8, batch_first=True, dropout=0.01))
         elif 'NLNN' in module:
             self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
-        elif 'SCM' in module:
+        elif 'TFCAM' in module:
             if 'SE' in module:
-                module_type = int(module.replace('SESCM','').replace('SCM',''))
-                self.features.add_module('SESCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=True))
+                se = True
+                GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(module.split('_')[1])
+                # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
             else:
-                module_type = int(module.replace('SESCM','').replace('SCM',''))
-                self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=False))
+                se = False
+                GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(module.split('_')[1])
+                # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
         elif 'SE' in module:
             self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))        
         module_idx += 1
@@ -442,13 +448,19 @@ class DenseNet(nn.Module):
                 #     sub_stack.add_module(str(idx), nn.MultiheadAttention(featureLength//(2**module_idx), 8, batch_first=True, dropout=0.01))
                 elif 'NLNN' in module:
                     self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
-                elif 'SCM' in module:
+                elif 'TFCAM' in module:
                     if 'SE' in module:
-                        module_type = int(module.replace('SESCM','').replace('SCM',''))
-                        self.features.add_module('SESCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=True))
+                        se = True
+                        GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                        module_type = int(module.split('_')[1])
+                        # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                        self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
                     else:
-                        module_type = int(module.replace('SESCM','').replace('SCM',''))
-                        self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=False))
+                        se = False
+                        GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                        module_type = int(module.split('_')[1])
+                        # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                        self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
                 elif 'SE' in module:
                     self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))        
                 module_idx += 1
@@ -471,13 +483,19 @@ class DenseNet(nn.Module):
                 #     sub_stack.add_module(str(idx), nn.MultiheadAttention(featureLength//(2**module_idx), 8, batch_first=True, dropout=0.01))
                 elif 'NLNN' in module:
                     self.features.add_module(module+str(module_idx), NLBlockND(in_channels,dimension=spatial_dims, norm_layer=norm))
-                elif 'SCM' in module:
+                elif 'TFCAM' in module:
                     if 'SE' in module:
-                        module_type = int(module.replace('SESCM','').replace('SCM',''))
-                        self.features.add_module('SESCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=True))
+                        se = True
+                        GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                        module_type = int(module.split('_')[1])
+                        # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                        self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
                     else:
-                        module_type = int(module.replace('SESCM','').replace('SCM',''))
-                        self.features.add_module('SCM'+str(module_idx), SCM(32, in_channels, scm_type=module_type,se=False))
+                        se = False
+                        GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                        module_type = int(module.split('_')[1])
+                        # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
+                        self.features.add_module('SETFCAM'+str(module_idx), TFCAM(GC, in_channels, tfcam_type=module_type,se=se))
                 elif 'SE' in module:
                     self.features.add_module(module+str(module_idx), monai.networks.blocks.ResidualSELayer(spatial_dims,in_channels))    
                 module_idx += 1

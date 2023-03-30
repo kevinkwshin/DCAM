@@ -7,7 +7,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
-from .scm import *
+from .tfcam import *
 
 from .densenet import *
 from .resnet import *
@@ -162,11 +162,11 @@ class UNet(nn.Module):
             fea = features
             print(fea)
             self.conv_0 = TwoConv(spatial_dims, in_channels, fea[0], act, norm, bias, dropout)
-            self.down_1 = Down(spatial_dims, fea[0], fea[0], act, norm, bias, dropout)
-            self.down_2 = Down(spatial_dims, fea[0], fea[1], act, norm, bias, dropout)
-            self.down_3 = Down(spatial_dims, fea[1], fea[2], act, norm, bias, dropout)
-            self.down_4 = Down(spatial_dims, fea[2], fea[3], act, norm, bias, dropout)
-            self.down_5 = Down(spatial_dims, fea[3], fea[4], act, norm, bias, dropout)
+            self.down_1 = Down(spatial_dims, fea[0], fea[0], act, norm, bias, dropout, encModule)
+            self.down_2 = Down(spatial_dims, fea[0], fea[1], act, norm, bias, dropout, encModule)
+            self.down_3 = Down(spatial_dims, fea[1], fea[2], act, norm, bias, dropout, encModule)
+            self.down_4 = Down(spatial_dims, fea[2], fea[3], act, norm, bias, dropout, encModule)
+            self.down_5 = Down(spatial_dims, fea[3], fea[4], act, norm, bias, dropout, encModule)
         
         # skip modules
         self.encModule = encModule
@@ -710,6 +710,7 @@ class Down(nn.Sequential):
         norm: Union[str, tuple],
         bias: bool,
         dropout: Union[float, tuple] = 0.0,
+        encModule='none'
     ):
         """
         Args:
@@ -726,9 +727,41 @@ class Down(nn.Sequential):
         max_pooling = Pool["MAX", spatial_dims](kernel_size=2)
         # aspp = monai.networks.blocks.SimpleASPP(spatial_dims, in_chns, in_chns//4, kernel_sizes= (1, 3, 3, 3), dilations= (1, 2, 4, 6), norm_type=norm, acti_type=act)
         convs = TwoConv(spatial_dims, in_chns, out_chns, act, norm, bias, dropout)
-        tfcam = SCM(32,out_chns,11,True)
         
         self.add_module("max_pooling", max_pooling)
         # self.add_module("aspp", aspp)
-        self.add_module("convs", convs)        
-        self.add_module("tfcam", tfcam)
+        self.add_module("convs", convs)     
+        
+        if 'ACM' in encModule:
+            GC = int(encModule.replace('ACM',''))
+            module1 = ACM(GC,out_chns)
+        elif 'CBAM' in encModule:
+            module1 = CBAM(out_chns,out_chns)
+        elif 'DEEPRFT' in encModule:
+            self.module1 = DeepRFT(out_chns,out_chns)
+        elif 'FFC' in encModule:
+            module1 = FFC_BN_ACT(out_chns,out_chns,norm_layer=norm)
+        elif 'MHA' in encModule:
+            featureLength = 1280
+            module1 = nn.MultiheadAttention(featureLength//2, 8, batch_first=True, dropout=0.01) 
+        elif 'NLNN' in encModule:
+            module1 = NLBlockND(out_chns,dimension=spatial_dims, norm_layer=norm)
+        elif 'TFCAM' in encModule:
+            if 'SE' in encModule:
+                # encModule : SETFCAM32_11
+                se = True
+                GC = int(encModule.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(encModule.split('_')[1])
+                module1 = TFCAM(GC,out_chns,module_type,se=se) #32
+            else:
+                se = False
+                GC = int(encModule.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(encModule.split('_')[1])
+                module1 = TFCAM(GC,out_chns,module_type,se=se) #32
+        elif 'SE' in encModule:
+            module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,out_chns)
+        else:
+            module1 = nn.Identity()
+            
+        self.add_module("att", module1)     
+            

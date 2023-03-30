@@ -18,7 +18,7 @@ from .cbam import *
 from .deeprft import *
 from .ffc import *
 from .nnblock import *
-from .scm import *
+from .tfcam import *
 
 
 def get_inplanes():
@@ -480,35 +480,41 @@ class ResNetFeature(ResNet):
             self.module3 = NLBlockND(128,dimension=spatial_dims, norm_layer=norm)
             self.module4 = NLBlockND(256,dimension=spatial_dims, norm_layer=norm)
             self.module5 = NLBlockND(512,dimension=spatial_dims, norm_layer=norm)    
-        elif 'SCM' in module:
-            # module_type = int(module.replace('SCM',''))
-            # self.module1 = SCM(64//8,64,module_type)
-            # self.module2 = SCM(64//8,64,module_type)
-            # self.module3 = SCM(128//8,128,module_type)
-            # self.module4 = SCM(256//8*2,256,module_type)
-            # self.module5 = SCM(512//8*4,512,module_type)
+        elif 'TFCAM' in module:
+            # module_type = int(module.replace('TFCAM',''))
+            # self.module1 = TFCAM(64//8,64,module_type)
+            # self.module2 = TFCAM(64//8,64,module_type)
+            # self.module3 = TFCAM(128//8,128,module_type)
+            # self.module4 = TFCAM(256//8*2,256,module_type)
+            # self.module5 = TFCAM(512//8*4,512,module_type)
             
-            # self.module1 = SCM(64//4,64,module_type) #16
-            # self.module2 = SCM(64//4,64,module_type)
-            # self.module3 = SCM(128//8,128,module_type)
-            # self.module4 = SCM(256//8*2,256,module_type)
-            # self.module5 = SCM(512//8*4,512,module_type)
+            # self.module1 = TFCAM(64//4,64,module_type) #16
+            # self.module2 = TFCAM(64//4,64,module_type)
+            # self.module3 = TFCAM(128//8,128,module_type)
+            # self.module4 = TFCAM(256//8*2,256,module_type)
+            # self.module5 = TFCAM(512//8*4,512,module_type)
             if 'SE' in module:
-                module_type = int(module.replace('SESCM','').replace('SCM',''))
+                # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
                 se = True
-                self.module1 = SCM(32,64,module_type,se=se) #32
-                self.module2 = SCM(32,64,module_type,se=se)
-                self.module3 = SCM(32,128,module_type,se=se)
-                self.module4 = SCM(32,256,module_type,se=se)
-                self.module5 = SCM(32,512,module_type,se=se)
+                GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(module.split('_')[1])
+
+                self.module1 = TFCAM(GC,64,module_type,se=se) #32
+                self.module2 = TFCAM(GC,64,module_type,se=se)
+                self.module3 = TFCAM(GC,128,module_type,se=se)
+                self.module4 = TFCAM(GC,256,module_type,se=se)
+                self.module5 = TFCAM(GC,512,module_type,se=se)
             else:
-                module_type = int(module.replace('SESCM','').replace('SCM',''))
+                # module_type = int(module.replace('SETFCAM','').replace('TFCAM',''))
                 se = False
-                self.module1 = SCM(32,64,module_type,se=se) #32
-                self.module2 = SCM(32,64,module_type,se=se)
-                self.module3 = SCM(32,128,module_type,se=se)
-                self.module4 = SCM(32,256,module_type,se=se)
-                self.module5 = SCM(32,512,module_type,se=se)
+                GC = int(module.split('_')[0].replace('SETFCAM','').replace('TFCAM',''))
+                module_type = int(module.split('_')[1])
+
+                self.module1 = TFCAM(GC,64,module_type,se=se) #32
+                self.module2 = TFCAM(GC,64,module_type,se=se)
+                self.module3 = TFCAM(GC,128,module_type,se=se)
+                self.module4 = TFCAM(GC,256,module_type,se=se)
+                self.module5 = TFCAM(GC,512,module_type,se=se)
 
         elif 'SE' in module:
             self.module1 = monai.networks.blocks.ResidualSELayer(spatial_dims,64)
