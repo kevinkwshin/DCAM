@@ -32,8 +32,8 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='densenet121', # 'basic', 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'densenet121', 'U2NET','U2NETP', 'basis'
-    encModule = "TFCAM8_11", # "SE_BOTTOM5"
+    modelName='basic', # 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'densenet169', 'U2NET','U2NETP', 'basis'
+    encModule = "SCM11", # "SE_BOTTOM5"
     decModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "NONE",
     
@@ -53,10 +53,10 @@ config_defaults = dict(
     mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = 'exp_20230410_DenseNet',
+    path_logRoot = 'exp_20230403',
     spatial_dims = 1,
     learning_rate = 1e-3,
-    batch_size = 384, # 512
+    batch_size = 512, # 256
     thresholdRPeak = 0.7,
     lossFn = 'BCE',
 )
@@ -977,8 +977,8 @@ class PVC_NET(pl.LightningModule):
             plt.plot(t,x[idx,0],alpha=0.9,color='black',label='ECG signal')
             # plt.plot(t,yhat2[idx,0],alpha=0.7,color='b',label='R Peak prediction (Binarized)')
             # plt.plot(t,yhat2[idx,1],alpha=0.7,color='r',label='PVC prediction (Binarized)')            
-            plt.scatter(t[idx_QRS],[signal_max]*len(idx_QRS),label='R-peak',alpha=1,marker="o",color='blue')
-            plt.scatter(t[idx_PVC],[signal_min]*len(idx_PVC),label='PVC',alpha=1,marker="^",color='r')
+            plt.scatter(t[idx_QRS],[signal_min]*len(idx_QRS),label='R-peak',alpha=1,marker="o",color='blue')
+            plt.scatter(t[idx_PVC],[signal_max]*len(idx_PVC),label='PVC',alpha=1,marker="v",color='r')
             # other annotation
             try:
                 plt.plot(t,ndimage.binary_dilation(yhat2[idx,2],iterations=int(srTarget*.1*0.2)),alpha=0.7,color='g',label='AFIB prediction (Likelihood)')
@@ -986,7 +986,7 @@ class PVC_NET(pl.LightningModule):
             except:
                 pass
             plt.xticks(np.arange(0, len(t)/self.srTarget, step=1))
-            plt.ylim([signal_min-.3,signal_max+.3])
+            plt.ylim([signal_min-.1,signal_max+.1])
             plt.legend(loc=1)
 
             plt.subplot(224)
@@ -1000,8 +1000,8 @@ class PVC_NET(pl.LightningModule):
             plt.plot(t,x[idx,0],alpha=0.9,color='black',label='ECG signal')
 #             plt.plot(t,y[idx,0],alpha=0.7,color='b',label='R Peak GT') if y is not None else y
 #             plt.plot(t,y[idx,1],alpha=0.7,color='r',label='PVC GT') if y is not None else y            
-            plt.scatter(t[idx_QRS],[signal_max]*len(idx_QRS),label='R-peak',alpha=1,marker="o",color='blue')
-            plt.scatter(t[idx_PVC],[signal_min]*len(idx_PVC),label='PVC',alpha=1,marker="^",color='r')
+            plt.scatter(t[idx_QRS],[signal_min]*len(idx_QRS),label='R-peak',alpha=1,marker="o",color='blue')
+            plt.scatter(t[idx_PVC],[signal_max]*len(idx_PVC),label='PVC',alpha=1,marker="v",color='r')
             # other annotation            
             try:
                 plt.plot(t,ndimage.binary_dilation(y[idx,2],iterations=int(srTarget*.1*0.2)),alpha=1,color='g',label='AFIB prediction (Likelihood)')
@@ -1009,7 +1009,7 @@ class PVC_NET(pl.LightningModule):
             except:
                 pass
             plt.xticks(np.arange(0, len(t)/self.srTarget, step=1))
-            plt.ylim([signal_min-.3,signal_max+.3])
+            plt.ylim([signal_min-.1,signal_max+.1])
             plt.legend(loc=1)
             plt.tight_layout()
             # plt.show()

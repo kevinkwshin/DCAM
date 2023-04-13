@@ -119,10 +119,10 @@ class MIT_DATASET():
         elif self.classes == 4:
             y_seg = np.stack((y_peak_seg, y_PVC_seg, y_AFIB_seg, y_Others_seg), axis=0).astype(float) # 4 multi class
         
-        y_Normal = np.array([0]) if 1 in y_Normal_seg else np.array([1]) # classification task
-        y_Others = np.array([0]) if 1 in y_Others_seg else np.array([1]) # classification task
-        y_PVC    = np.array([0]) if 1 in y_PVC_seg else np.array([1]) # classification task
-        y_AFIB   = np.array([0]) if 1 in y_AFIB_seg else np.array([1]) # classification task
+        y_Normal = np.array([0]) if 1 not in y_Normal_seg else np.array([1]) # classification task
+        y_Others = np.array([0]) if 1 not in y_Others_seg else np.array([1]) # classification task
+        y_PVC    = np.array([0]) if 1 not in y_PVC_seg else np.array([1]) # classification task
+        y_AFIB   = np.array([0]) if 1 not in y_AFIB_seg else np.array([1]) # classification task
         
         signal_original = signal.copy()
         signal_original = np.expand_dims(signal_original,0)

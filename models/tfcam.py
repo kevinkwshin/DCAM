@@ -12,6 +12,9 @@ import torch.nn as nn
 
 from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Norm, Pool, split_args
+import pylab as plt
+import scipy
+import numpy as np
 
 # class ChannelSELayer(nn.Module):
 #     """
@@ -315,7 +318,7 @@ class AttendModule(nn.Module):
 
         mus = torch.bmm(xhats_reshape, weights_normalized)
         # mus = mus.view(b, self.num_heads * self.num_c_per_head, 1, 1)
-        # print('mus',mus.shape)
+        # print('mus',mus.shape) 
         mus = mus.view(b, self.num_heads * self.num_c_per_head, 1)
         # print('mus',mus.shape)
 
@@ -336,9 +339,24 @@ class AttendModule(nn.Module):
 
             # weights_normalized = weights_normalized.view(b, self.num_heads, h)
             weights_splitted = torch.split(weights_normalized, 1, 1)
-            # print(weights_normalized.shape, weights_splitted.shape)
-            return mus, weights_splitted
+            # print(weights_normalized.shape, weights_splitted[0].shape,weights_splitted[1].shape)
+            # plt.plot(weights_normalized)
 
+            k = weights_splitted[0][0,0].detach().numpy()
+            q = weights_splitted[1][0,0].detach().numpy()
+            k_ =scipy.ndimage.zoom(k, 1280/k.shape[-1], order=0, mode='nearest')
+            q_ =scipy.ndimage.zoom(q, 1280/q.shape[-1], order=0, mode='nearest')
+            k_ = k_/np.max(k_)
+            q_ = q_/np.max(q_)
+            plt.subplot(211)
+            plt.plot(k_,label='0', alpha=0.7)
+            plt.axis('off')
+            plt.subplot(212)
+            plt.plot(q_,label='1', alpha=0.7)
+            plt.axis('off')
+            plt.legend()
+            # return mus, weights_splitted
+            
         return mus
 
 

@@ -1,5 +1,5 @@
 program: train.py
-name :  Sweep_TFCAM_VGG_ablation # sweep run name!!
+name :  Sweep_TFCAM_DenseNet_ablation # sweep run name!!
 method: grid # bayes, grid
 metric:
     name: testAMC_F1_Class1Raw
@@ -29,11 +29,13 @@ parameters:
     #     values: ['NONE', 'NEUROKIT2']
     # encModule:  
     #     values: ['NONE', 'ACM', 'CBAM', 'DEEPRFT', 'NLNN', 'SE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',  
+
     encModule:  
-        values: ['NONE', 'TFCAM4_11','TFCAM4_6','SETFCAM4_11','SETFCAM4_6',
-                         'TFCAM8_11','TFCAM8_6','SETFCAM8_11','SETFCAM8_6',
-                         'TFCAM16_11','TFCAM16_6','SETFCAM16_11','SETFCAM16_6',
-                         'TFCAM32_11','TFCAM32_6','SETFCAM32_11','SETFCAM32_6',
+        values: ['TFCAM4_11',
+                 'TFCAM8_11',
+                 'TFCAM16_11',
+                 'TFCAM32_11',
+                 'TFCAM4_6','TFCAM8_6','TFCAM16_6','TFCAM32_6'
                 ] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:
     # encModule:  
     #     values: ['TFCAM32_12','TFCAM32_11','TFCAM32_10','TFCAM32_9','TFCAM32_8','TFCAM32_7', 'TFCAM32_6', 'TFCAM32_5', 'TFCAM32_4', 'TFCAM32_3', 'TFCAM32_2', 'TFCAM32_1', 'NONE'] # 'SE', 'DEEPRFT', 'ACM', 'MHA',      # encModule:

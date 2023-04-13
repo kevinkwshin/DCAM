@@ -633,9 +633,11 @@ class Down(nn.Sequential):
         super().__init__()
         max_pooling = Pool["MAX", spatial_dims](kernel_size=2)
         convs = TwoConv(spatial_dims, in_chns, out_chns, act, norm, bias, dropout)
+        se = monai.networks.blocks.ResidualSELayer(spatial_dims,out_chns)
         
         self.add_module("max_pooling", max_pooling)
         self.add_module("convs", convs)     
+        self.add_module("se", se)     
         
         if 'ACM' in encModule:
             GC = int(encModule.replace('ACM',''))
