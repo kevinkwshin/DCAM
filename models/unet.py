@@ -21,7 +21,7 @@ import torch
 from torch import nn
 
 from monai.networks.blocks import Convolution, UpSample
-from monai.networks.nets.basic_unet import TwoConv, UpSample, Union#, Down
+from monai.networks.nets.basic_unet import TwoConv, UpSample, Union #, Down
 from monai.networks.blocks import Convolution
 from monai.networks.layers.factories import Act, Conv, Pad, Pool
 

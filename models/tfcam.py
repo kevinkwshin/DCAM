@@ -346,15 +346,47 @@ class AttendModule(nn.Module):
             q = weights_splitted[1][0,0].detach().numpy()
             k_ =scipy.ndimage.zoom(k, 1280/k.shape[-1], order=0, mode='nearest')
             q_ =scipy.ndimage.zoom(q, 1280/q.shape[-1], order=0, mode='nearest')
+            k_[:20] = 1e-6
+            k_[-20:] = 1e-6
+            q_[:20] = 1e-6
+            q_[-20:] = 1e-6
             k_ = k_/np.max(k_)
             q_ = q_/np.max(q_)
-            plt.subplot(211)
-            plt.plot(k_,label='0', alpha=0.7)
+
+            k_ = np.expand_dims(k_,0)
+            q_ = np.expand_dims(q_,0)
+            
+            x_ = x[0,:,0].detach().numpy()
+            x_ =scipy.ndimage.zoom(x_, 1280/x_.shape[-1], order=0, mode='nearest')
+
+            # plt.figure(figsize=(20,8))
+            
+            upper_limit = 6
+            lower_limit = -6
+            
+            plt.subplot(143)
+            plt.title('K')
+            # plt.imshow(k_,aspect='auto',extent=[0,x_.shape[-1],-1.5,1.5],cmap='Reds', alpha=0.6)
+            plt.imshow(q_,aspect='auto',extent=[0,x_.shape[-1],lower_limit,upper_limit],cmap='Reds', alpha=0.6)
+            # plt.plot(x_, alpha=0.7)
             plt.axis('off')
-            plt.subplot(212)
-            plt.plot(q_,label='1', alpha=0.7)
+            
+            plt.subplot(144)
+            plt.title('Q')
+            plt.imshow(k_,aspect='auto',extent=[0,x_.shape[-1],lower_limit,upper_limit],cmap='Greens', alpha=0.6)
+            # plt.imshow(q_,aspect='auto',extent=[0,x_.shape[-1],-1.5,1.5],cmap='Greens', alpha=0.6)
+            # plt.plot(x_, alpha=0.7)
             plt.axis('off')
-            plt.legend()
+
+            # plt.subplot(222)
+            # plt.title('k')
+            # plt.plot(k_[0])
+            # plt.axis('off')
+            
+            # plt.subplot(224)
+            # plt.title('q')
+            # plt.plot(q_[0])
+            # plt.axis('off')
             # return mus, weights_splitted
             
         return mus
