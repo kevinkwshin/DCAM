@@ -1,5 +1,5 @@
-# PVC-NET
-arxiv
+# DCAM (proceeding)
+https://colab.research.google.com/github/kevinkwshin/DCAM/blob/main/test.ipynb
 
 ## train
 <code> python train.py </code> 
