@@ -22,23 +22,24 @@ import neurokit2 as nk
 from data import *
 from utils import *
 
-train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
-# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
-# test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
-valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
-test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
+train_data = np.load('mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
+valid_data = np.load('mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
+test_data = np.load('mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+# test_data = np.load('mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
 
-AMC_data  = np.load('dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
-CPSC2020_data  = np.load('dataset/CPSC2020_testSeg_ver2.npy',allow_pickle=True)
-CU_data  = np.load('dataset/cu-ventricular-tachyarrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
-ESC_data  = np.load('dataset/european-st-t-database-1.0.0_testSeg.npy',allow_pickle=True)
-FANTASIA_data = np.load('dataset/fantasia-database-1.0.0_testSeg.npy', allow_pickle=True) # B x (C) x Signal
-INCART_data  = np.load('dataset/INCART_testSeg.npy',allow_pickle=True)
-NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
-STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
-SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+# AMC_data  = np.load('dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
+# CPSC2020_data  = np.load('dataset/CPSC2020_testSeg_ver2.npy',allow_pickle=True)
+# CU_data  = np.load('dataset/cu-ventricular-tachyarrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+# ESC_data  = np.load('dataset/european-st-t-database-1.0.0_testSeg.npy',allow_pickle=True)
+# FANTASIA_data = np.load('dataset/fantasia-database-1.0.0_testSeg.npy', allow_pickle=True) # B x (C) x Signal
+# INCART_data  = np.load('dataset/INCART_testSeg.npy',allow_pickle=True)
+# NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
+# STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
+# SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
 
 mean, std = EDA_zscore(train_data)
+
 # train_data = np.concatenate((train_data,STDB_data))
 
 class MIT_DATASET():
@@ -250,17 +251,19 @@ add_datainfo(train_data,1)
 add_datainfo(valid_data,2)
 add_datainfo(test_data,3)
 
-add_datainfo(AMC_data,11)
-add_datainfo(CPSC2020_data,12)
-add_datainfo(CU_data,13)
-add_datainfo(ESC_data,14)
-add_datainfo(FANTASIA_data,15)
-add_datainfo(INCART_data,16)
-add_datainfo(NS_data,17)
-add_datainfo(STDB_data,18)
-add_datainfo(SVDB_data,19)
-# add_datainfo(AMCREAL_data,21)
-print()
+try:
+  add_datainfo(AMC_data,11)
+  add_datainfo(CPSC2020_data,12)
+  add_datainfo(CU_data,13)
+  add_datainfo(ESC_data,14)
+  add_datainfo(FANTASIA_data,15)
+  add_datainfo(INCART_data,16)
+  add_datainfo(NS_data,17)
+  add_datainfo(STDB_data,18)
+  add_datainfo(SVDB_data,19)
+  # add_datainfo(AMCREAL_data,21)
+except:
+  print()
 
 def signal_distort(
     signal,
