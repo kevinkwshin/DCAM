@@ -1,15 +1,19 @@
 import os, sys, shutil
-os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
-os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
+import wandb
+# os.environ["HTTP_PROXY"] = "http://192.168.45.100:3128"
+# os.environ["HTTPS_PROXY"] = "http://192.168.45.100:3128"
 
 # import bagua_core; bagua_core.install_deps()
 # export http_proxy=http://192.168.45.100:3128
 # export https_proxy=https://192.168.45.100:3128
 
-# !pip install neurokit2 wfdb monai==1.1.0 pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet
+# !pip install neurokit2 wfdb monai==1.1.0 pytorch_lightning==1.7.7 wandb==0.9.4 libauc==1.2.0 --upgrade --quiet
+# !pip install cryptography
+# !pip install pyOpenSSL
+# !pip install certifi
 # os.system('pip install monai neurokit2 wfdb monai pytorch_lightning==1.7.7 wandb libauc==1.2.0 --upgrade --quiet')
 
-gpus= "0,1,2,3"
+gpus= "0,1"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = gpus
 os.environ["WANDB_API_KEY"] = '6cd6a2f58c8f4625faaea5c73fe110edab2be208'
@@ -32,8 +36,8 @@ NUM_WORKERS = os.cpu_count()
         
 config_defaults = dict(
     dataNorm ='zscoreO', # zscoreI, zscoreO, minmaxI
-    modelName='densenet121', # 'basic', 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'densenet121', 'U2NET','U2NETP', 'basis'
-    encModule = "TFCAM8_11", # "SE_BOTTOM5"
+    modelName='basic', # 'basic', 'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'resnet34', 'densenet121', 'U2NET','U2NETP', 'basis'
+    encModule = "TFCAM8_1", # "SE_BOTTOM5"
     decModule = "NONE", # "SE_BOTTOM5"
     segheadModule = "NONE",
     
@@ -53,7 +57,7 @@ config_defaults = dict(
     mtl = 'NONE', # 'NONE', 'CLS, 'REC', 'ALL_avg', 'ALL_max'
     trainaug = 'NEUROKIT2',
 
-    path_logRoot = 'exp_20230410_DenseNet',
+    path_logRoot = 'exp_20230830_DCAM',
     spatial_dims = 1,
     learning_rate = 1e-3,
     batch_size = 384, # 512
@@ -89,7 +93,6 @@ def train():
     # STDB_dataset     = MIT_DATASET(STDB_data,featureLength, srTarget, classes, dataNorm, False)
     SVDB_dataset     = MIT_DATASET(SVDB_data,featureLength, srTarget, classes, dataNorm, False)
     # AMCREAL_dataset  = MIT_DATASET(AMCREAL_data,featureLength, srTarget, classes, dataNorm, False)
-    
 
     if model.hyperparameters['sampler']:
         train_loader = DataLoader(train_dataset, batch_size = model.hyperparameters['batch_size'], shuffle = False, num_workers=NUM_WORKERS//4, pin_memory=True, sampler=ImbalancedDatasetSampler(train_dataset), drop_last=True)
@@ -111,7 +114,8 @@ def train():
     # STDB_loader     = DataLoader(STDB_dataset, batch_size = batch_size, num_workers=2, shuffle = False)
     SVDB_loader     = DataLoader(SVDB_dataset, batch_size = batch_size, num_workers=NUM_WORKERS//4, shuffle = False)
 
-    wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
+    # wandb_logger = pl_loggers.WandbLogger(save_dir=f"{wandb.config.path_logRoot}/{model.experiment_name}", name=model.experiment_name, project=wandb.config.project, offline=False)
+    # wandb_logger = pl_loggers.WandbLogger(name=model.experiment_name, project=wandb.config.project, offline=False)
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='epoch')
     early_stop_callback = EarlyStopping(monitor='val_loss', mode="min", patience=10, verbose=False)
@@ -134,7 +138,7 @@ def train():
                         check_val_every_n_epoch=2,
                         # callbacks=[loss_checkpoint_callback, metric_checkpoint_callback, lr_monitor_callback, early_stop_callback],# StochasticWeightAveraging(swa_epoch_start=0.1, swa_lrs=1e-5)], #
                         callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback, pl.callbacks.StochasticWeightAveraging(swa_epoch_start=0.2, swa_lrs=5e-4)], #
-                        logger = wandb_logger,
+                        # logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
     
@@ -198,7 +202,7 @@ def test(path, testPlot=False):
                         deterministic=True,
                         check_val_every_n_epoch=10,
                         # callbacks=[loss_checkpoint_callback, lr_monitor_callback, early_stop_callback],# , StochasticWeightAveraging(swa_lrs=0.0001)], #
-                        # logger = wandb_logger,
+                        logger = wandb_logger,
                         precision= 32 # 'bf16', 16, 32
     )
     

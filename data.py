@@ -2,25 +2,44 @@ from data import *
 from utils import *
 
 import neurokit2 as nk
-# train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
-# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+# # train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_trainSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+# # valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
 
-train_data = np.load('/workspace/signal/PVC-NET_/dataset//mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
-valid_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
-test_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# train_data = np.load('/workspace/signal/PVC-NET_/dataset//mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# valid_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# test_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
 
-AMC_data  = np.load('/workspace/signal/PVC-NET_/dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
-CPSC2020_data  = np.load('/workspace/signal/PVC-NET_/dataset/CPSC2020_testSeg_ver2.npy',allow_pickle=True)
-CU_data  = np.load('/workspace/signal/PVC-NET_/dataset/cu-ventricular-tachyarrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
-ESC_data  = np.load('/workspace/signal/PVC-NET_/dataset/european-st-t-database-1.0.0_testSeg.npy',allow_pickle=True)
-FANTASIA_data = np.load('/workspace/signal/PVC-NET_/dataset/fantasia-database-1.0.0_testSeg.npy', allow_pickle=True) # B x (C) x Signal
-INCART_data  = np.load('/workspace/signal/PVC-NET_/dataset/INCART_testSeg.npy',allow_pickle=True)
-NS_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
-STDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
-SVDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+# AMC_data  = np.load('/workspace/signal/PVC-NET_/dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
+# CPSC2020_data  = np.load('/workspace/signal/PVC-NET_/dataset/CPSC2020_testSeg_ver2.npy',allow_pickle=True)
+# CU_data  = np.load('/workspace/signal/PVC-NET_/dataset/cu-ventricular-tachyarrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+# ESC_data  = np.load('/workspace/signal/PVC-NET_/dataset/european-st-t-database-1.0.0_testSeg.npy',allow_pickle=True)
+# FANTASIA_data = np.load('/workspace/signal/PVC-NET_/dataset/fantasia-database-1.0.0_testSeg.npy', allow_pickle=True) # B x (C) x Signal
+# INCART_data  = np.load('/workspace/signal/PVC-NET_/dataset/INCART_testSeg.npy',allow_pickle=True)
+# NS_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
+# STDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
+# SVDB_data = np.load('/workspace/signal/PVC-NET_/dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+
+from data import *
+from utils import *
+
+train_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_train_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_valid_20230216.npy',allow_pickle=True) # B x (C) x Signal
+# test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_test_20230216.npy',allow_pickle=True) # B x (C) x Signal
+valid_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_validSeg_seed4.npy',allow_pickle=True) # B x (C) x Signal
+test_data = np.load('dataset/mit-bih-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True) # B x (C) x Signal
+
+AMC_data  = np.load('dataset/AMC_PeakLabel_3rd_125Hz.npy',allow_pickle=True) # 497 samples
+CPSC2020_data  = np.load('dataset/CPSC2020_testSeg_ver2.npy',allow_pickle=True)
+CU_data  = np.load('dataset/cu-ventricular-tachyarrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
+ESC_data  = np.load('dataset/european-st-t-database-1.0.0_testSeg.npy',allow_pickle=True)
+FANTASIA_data = np.load('dataset/fantasia-database-1.0.0_testSeg.npy', allow_pickle=True) # B x (C) x Signal
+INCART_data  = np.load('dataset/INCART_testSeg.npy',allow_pickle=True)
+NS_data = np.load('dataset/mit-bih-noise-stress-test-database-1.0.0_testSeg.npy',allow_pickle=True)
+STDB_data = np.load('dataset/mit-bih-st-change-database-1.0.0_testSeg.npy',allow_pickle=True)
+SVDB_data = np.load('dataset/mit-bih-supraventricular-arrhythmia-database-1.0.0_testSeg.npy',allow_pickle=True)
 
 mean, std = EDA_zscore(train_data)
-train_data = np.concatenate((train_data,STDB_data))
+# train_data = np.concatenate((train_data,STDB_data))
 
 class MIT_DATASET():
     def __init__(self, data, featureLength, srTarget, classes=2, normalize='minmaxI', augmentation="NONE", random_crop=False):
@@ -156,7 +175,8 @@ class MIT_DATASET():
                 'y_PVC_seg':y_PVC_seg, 
                 'y_Normal_seg':y_Normal_seg,
                 'y_Others_seg':y_Others_seg, 
-                'y_seg':y_seg,}
+                'y_seg':y_seg,
+                }
                 
 
 def add_datainfo(data, info_string):
@@ -617,7 +637,8 @@ augment_audiomentation = Compose([
     AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.01, p=p),
     AddGaussianSNR(min_snr_in_db=5, max_snr_in_db=40.0, p=p),
     Gain(min_gain_in_db=-12, max_gain_in_db=12, p=p),
-    FrequencyMask(min_frequency_band=0.0, max_frequency_band=.5, p=p),
+    # FrequencyMask(min_frequency_band=0.0, max_frequency_band=.5, p=p),
+    # SpecFrequencyMask(min_frequency_band=0.0, max_frequency_band=.5, p=p),
     TanhDistortion(min_distortion= 0.01, max_distortion = 0.4, p=p),
     ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=30, p=p),
 ])

@@ -7,7 +7,6 @@ import random
 import time
 
 import pickle
-import pylab as plt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,12 +26,12 @@ from scipy.ndimage import label, binary_closing
 from skimage import morphology
 from scipy import ndimage
 
-import kornia
+# import kornia
 import neurokit2 as nk
 import librosa as lb
 import soundfile as sf
 
-import cv2
+# import cv2
 import monai
 from monai.inferers import sliding_window_inference
 from monai.config import print_config
@@ -170,8 +169,10 @@ def remove_baseline_wander(signal, fs):
 def EDA_zscore(arr_dataset):
     all = []
     for a in arr_dataset:
-        all.append(remove_baseline_wander(a['signal'],360))
-        
+        if len(a['signal'])>1800:
+            all.append(remove_baseline_wander(a['signal'], 360))
+            # all.append(a['signal'])
+    
     all = np.array(all)#.flatten().all()
     # all01 = np.percentile(all,1)
     # all[all<all01] = all01
@@ -179,4 +180,5 @@ def EDA_zscore(arr_dataset):
     # all[all>all99] = all99
     mean = np.mean(all)
     std = np.std(all)
+    print(f'mean{mean},std{std}')
     return mean, std
